@@ -110,6 +110,7 @@ class SelectedPipelineRequest(BaseModel):
     topic: str
     selected_papers: List[RawPaperMetadata]
     relevance_threshold: int = Field(default=4, ge=1, le=5)
+    max_synthesis_count: Optional[int] = Field(default=None)
     model_provider: Optional[str] = "groq"
     model_name: Optional[str] = None
     groq_api_key: Optional[str] = None

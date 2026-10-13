@@ -67,6 +67,16 @@ const MainLayout: React.FC = () => {
   const [legalModalType, setLegalModalType] = useState<'terms' | 'privacy' | null>(null);
 
   // Search state & Pagination
+  // Persist session ID to localStorage so refreshes don't create a new sidebar entry per search
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('rl_active_session_id');
+      if (stored) return stored;
+    } catch {}
+    const id = `session_${Date.now()}`;
+    try { localStorage.setItem('rl_active_session_id', id); } catch {}
+    return id;
+  });
   const [currentTopic, setCurrentTopic] = useState('');
   const [searchOffset, setSearchOffset] = useState(0);
   const [discoveredPapers, setDiscoveredPapers] = useState<RawPaperMetadata[]>([]);
@@ -112,6 +122,7 @@ const MainLayout: React.FC = () => {
       const saved = localStorage.getItem('litbuddy_active_session');
       if (saved) {
         const data = JSON.parse(saved);
+        if (data.sessionId) setActiveSessionId(data.sessionId);
         if (data.currentTopic) setCurrentTopic(data.currentTopic);
         if (data.searchOffset) setSearchOffset(data.searchOffset);
         if (data.discoveredPapers) setDiscoveredPapers(data.discoveredPapers);
@@ -241,6 +252,33 @@ const MainLayout: React.FC = () => {
     }
   };
 
+  // Helper to register or update search history under active session without chat fragmentation
+  const recordSearchHistory = (topic: string, count: number, compositeTitle?: string) => {
+    try {
+      const displayTopic = compositeTitle || topic.trim();
+      const sessionKey = activeSessionId;
+      const newItem: SavedSearchItem = {
+        query_hash: sessionKey,
+        topic: displayTopic,
+        total_count: count,
+        created_at: new Date().toISOString(),
+        access_count: 1
+      };
+
+      const localListRaw = localStorage.getItem('researchloom_local_searches');
+      const localList: SavedSearchItem[] = localListRaw ? JSON.parse(localListRaw) : [];
+      // Update entry with matching sessionKey, or prepend new one
+      const filtered = localList.filter((s) => s.query_hash !== sessionKey && s.topic.toLowerCase().trim() !== displayTopic.toLowerCase().trim());
+      const updated = [newItem, ...filtered].slice(0, 30);
+      localStorage.setItem('researchloom_local_searches', JSON.stringify(updated));
+
+      // Dispatch window event so Sidebar updates immediately without full reload
+      window.dispatchEvent(new CustomEvent('researchloom_search_saved'));
+    } catch (err) {
+      console.warn('Could not record search history:', err);
+    }
+  };
+
   const handleSearch = async (
     params: {
       topic: string;
@@ -291,31 +329,6 @@ const MainLayout: React.FC = () => {
       custom_base_url: runtimeKeys.custom_base_url
     };
 
-    // Helper to immediately register search in history and dispatch event
-    const recordSearchHistory = (topic: string, count: number) => {
-      try {
-        const queryHash = topic.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-        const newItem: SavedSearchItem = {
-          query_hash: queryHash || `search_${Date.now()}`,
-          topic: topic.trim(),
-          total_count: count,
-          created_at: new Date().toISOString(),
-          access_count: 1
-        };
-
-        const localListRaw = localStorage.getItem('researchloom_local_searches');
-        const localList: SavedSearchItem[] = localListRaw ? JSON.parse(localListRaw) : [];
-        const filtered = localList.filter((s) => s.topic.toLowerCase().trim() !== topic.toLowerCase().trim());
-        const updated = [newItem, ...filtered].slice(0, 30);
-        localStorage.setItem('researchloom_local_searches', JSON.stringify(updated));
-
-        // Dispatch window event so Sidebar updates immediately without full reload
-        window.dispatchEvent(new CustomEvent('researchloom_search_saved'));
-      } catch (err) {
-        console.warn('Could not record search history:', err);
-      }
-    };
-
     if (params.mode === 'discover') {
       // Step 1: Candidate Pool Discovery (Iterative Multi-Query Candidate Pooling)
       setStage('discovering');
@@ -358,7 +371,8 @@ const MainLayout: React.FC = () => {
         setStage('idle');
 
         // Immediately persist to search history and active session
-        recordSearchHistory(params.topic, combinedPapers.length);
+        const compositeTitle = updatedQueries.length > 0 ? updatedQueries.join(' + ') : params.topic;
+        recordSearchHistory(params.topic, combinedPapers.length, compositeTitle);
         try {
           const norm = params.topic.toLowerCase().trim();
           localStorage.setItem(`litbuddy_saved_discovery_${norm}`, JSON.stringify({
@@ -367,6 +381,7 @@ const MainLayout: React.FC = () => {
             queries: updatedQueries
           }));
           localStorage.setItem('litbuddy_active_session', JSON.stringify({
+            sessionId: activeSessionId,
             currentTopic: params.topic,
             searchOffset: newOffset,
             discoveredPapers: combinedPapers,
@@ -400,7 +415,7 @@ const MainLayout: React.FC = () => {
         setIsSourcesSidebarOpen(true);
 
         // Immediately persist to search history and local review cache
-        recordSearchHistory(response.topic, response.total_selected || response.papers.length);
+        recordSearchHistory(response.topic, response.total_selected || response.papers.length, response.topic);
         try {
           const norm = response.topic.toLowerCase().trim();
           localStorage.setItem(`litbuddy_saved_review_${norm}`, JSON.stringify(response));
@@ -432,10 +447,16 @@ const MainLayout: React.FC = () => {
     try {
       const extractTimer = setTimeout(() => setStage('extracting'), 2500);
 
+      // Unify composite topic so synthesis encompasses all pooled keywords
+      const compositeTopic = queryHistory.length > 0
+        ? Array.from(new Set(queryHistory)).join('; ')
+        : (lastRequestParams.topic || currentTopic);
+
       const response = await runSelectedPipeline({
-        topic: lastRequestParams.topic,
+        topic: compositeTopic,
         selected_papers: selectedList,
-        relevance_threshold: lastRequestParams.relevanceThreshold,
+        relevance_threshold: lastRequestParams.relevanceThreshold || 4,
+        max_synthesis_count: undefined, // Dynamic: determined by topic relevance & redundancy, not an arbitrary hard cap
         model_provider: activeProvider,
         model_name: activeModel,
         groq_api_key: runtimeKeys.groq,
@@ -458,29 +479,19 @@ const MainLayout: React.FC = () => {
         const norm = response.topic.toLowerCase().trim();
         localStorage.setItem(`litbuddy_saved_review_${norm}`, JSON.stringify(response));
         localStorage.setItem('litbuddy_active_session', JSON.stringify({
+          sessionId: activeSessionId,
           currentTopic: response.topic,
           searchOffset,
           discoveredPapers,
+          queryHistory,
           selectedPaperIds: Array.from(selectedPaperIds),
           reviewResults: response,
           viewMode: 'chat',
           mainTab: 'research'
         }));
 
-        // Also record in search history
-        const queryHash = norm.replace(/[^a-z0-9]/g, '');
-        const newItem: SavedSearchItem = {
-          query_hash: queryHash || `search_${Date.now()}`,
-          topic: response.topic.trim(),
-          total_count: response.total_selected || response.papers.length,
-          created_at: new Date().toISOString(),
-          access_count: 1
-        };
-        const localListRaw = localStorage.getItem('researchloom_local_searches');
-        const localList: SavedSearchItem[] = localListRaw ? JSON.parse(localListRaw) : [];
-        const filtered = localList.filter((s) => s.topic.toLowerCase().trim() !== response.topic.toLowerCase().trim());
-        localStorage.setItem('researchloom_local_searches', JSON.stringify([newItem, ...filtered].slice(0, 30)));
-        window.dispatchEvent(new CustomEvent('researchloom_search_saved'));
+        // Update single notebook entry for this active session
+        recordSearchHistory(response.topic, response.total_selected || response.papers.length, compositeTopic);
       } catch {}
     } catch (err: any) {
       setStage('error');
@@ -507,6 +518,9 @@ const MainLayout: React.FC = () => {
   };
 
   const resetToNewReview = () => {
+    const newId = `session_${Date.now()}`;
+    try { localStorage.setItem('rl_active_session_id', newId); } catch {}
+    setActiveSessionId(newId);
     setCurrentTopic('');
     setDiscoveredPapers([]);
     setQueryHistory([]);

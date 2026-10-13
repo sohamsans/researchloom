@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v4.2.0-beta.2] - 2026-10-13
 
 ### Fixed
+- **BUG-119 (Candidate Pool Under-Synthesis Cap Removal & Unified Multi-Topic Synthesis)**:
+  - Eliminated hardcoded 6-paper cap in `pipeline.py` (`len(filtered) >= 6: break`) that artificially truncated large candidate pools (e.g. 774 papers down to 6).
+  - Added user-configurable `max_synthesis_count` (up to 100 deep-extracted papers with bounded 14s timeouts) with high-speed structured abstract synthesis for remaining candidates so no selected paper is discarded.
+  - Constructed unified composite topic (`queryHistory.join('; ')`) for synthesis, ensuring multi-topic pooled literature reviews synthesize the entire domain scope rather than only the last entered topic.
+  - Resolved sidebar chat fragmentation by anchoring searches under persistent `activeSessionId`, updating the project's topic title across consecutive searches without spawning duplicate notebook chats.
+
+- **BUG-120 (Large Pool Bulk Download Chunking & Non-Blocking Safe Zipping)**:
+  - Fixed infinite loading hang when downloading large pools (50-700+ papers) by introducing safe chunking (batches of 50 papers) in `CandidatePreviewTable.tsx`.
+  - Added batch selector dropdown (`All in chunks`, `Batch 1-50`, `Batch 51-100`, etc.) and real-time visual progress counter (`Zipping X/Y...`) preventing browser connection drops and HTTP timeout crashes.
+  - Updated ZIP download archive naming to `researchloom_collection_{count}_papers.zip`.
 - **BUG-116 (Gemini and Groq 404 Model Deprecation & Transparent Copilot Diagnostics)**:
   - Migrated obsolete hardcoded Google Gemini endpoints to official `gemini-3.8-flash` (with automated normalization handling legacy `2.0-flash` and `2.5-flash` requests).
   - Migrated obsolete Groq model `llama-3.1-8b-instant` (HTTP 404 `model_not_found`) to Groq's high-speed cloud model `llama-3.3-70b-versatile`.

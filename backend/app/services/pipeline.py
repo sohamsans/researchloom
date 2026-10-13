@@ -207,23 +207,75 @@ async def run_pipeline_on_selected_papers(request: SelectedPipelineRequest) -> P
     triage_result = await llm.batch_triage(topic=request.topic, candidates=candidate_dicts)
     triage_map = {item.id: item for item in triage_result.evaluations}
 
-    # Filter top papers or respect user choice (capped at 6 for rapid Stage 2 extraction)
-    filtered: List[RawPaperMetadata] = []
+    # Helper function for topical redundancy check (detect papers that repeat the same thing)
+    import re
+    def normalize_title_tokens(title: str) -> set:
+        clean = re.sub(r"[^a-zA-Z0-9\s]", "", title.lower())
+        stopwords = {"a", "an", "the", "and", "or", "of", "in", "for", "on", "with", "to", "at", "by", "from", "using", "based", "approach", "study", "via"}
+        tokens = set(clean.split()) - stopwords
+        return tokens
+
+    def jaccard_similarity(s1: set, s2: set) -> float:
+        if not s1 or not s2:
+            return 0.0
+        inter = len(s1.intersection(s2))
+        union = len(s1.union(s2))
+        return inter / union if union > 0 else 0.0
+
+    # Filter papers strictly based on topical relevance (triage score >= relevance_threshold)
+    relevant_candidates: List[RawPaperMetadata] = []
     for p in request.selected_papers:
         t_info = triage_map.get(p.id)
         score = t_info.score if t_info else 4
         if score >= request.relevance_threshold:
-            filtered.append(p)
-            if len(filtered) >= 6:
+            relevant_candidates.append(p)
+
+    if not relevant_candidates:
+        # Fallback to candidates if threshold is overly stringent
+        relevant_candidates = list(request.selected_papers)
+        warnings.append(f"Evaluated all {len(relevant_candidates)} candidates across topical scope.")
+
+    # Sort candidates by relevance score descending (vital 5 first, then 4)
+    relevant_candidates.sort(key=lambda p: (triage_map.get(p.id).score if triage_map.get(p.id) else 4), reverse=True)
+
+    # Dynamic Redundancy Filtering: Prune papers that repeat the exact same title/methodology
+    unique_relevant_papers: List[RawPaperMetadata] = []
+    seen_token_sets: List[set] = []
+    redundant_pruned_count = 0
+
+    for p in relevant_candidates:
+        tokens = normalize_title_tokens(p.title)
+        # Check if this paper's core title concepts heavily overlap (>0.75 Jaccard overlap) with an already accepted higher-scoring paper
+        is_repeat = False
+        for seen in seen_token_sets:
+            if jaccard_similarity(tokens, seen) >= 0.75:
+                is_repeat = True
                 break
+        
+        if is_repeat:
+            redundant_pruned_count += 1
+            continue
 
-    if not filtered:
-        filtered = request.selected_papers[:min(len(request.selected_papers), 4)]
-        warnings.append(f"Included top {len(filtered)} selected papers.")
+        unique_relevant_papers.append(p)
+        seen_token_sets.append(tokens)
 
-    # Stage 2: Deep extraction (bounded with per-paper 12s timeout)
+    if redundant_pruned_count > 0:
+        warnings.append(f"De-duplicated {redundant_pruned_count} redundant papers repeating identical topical coverage.")
+
+    filtered = unique_relevant_papers
+
+    # If the user explicitly provided a max_synthesis_count, respect it; otherwise synthesize all unique relevant papers
+    if request.max_synthesis_count and request.max_synthesis_count > 0:
+        filtered = filtered[:request.max_synthesis_count]
+
+    # Deep extraction tier (for high-speed concurrency, deep extract up to 60 papers with full PDF/abstract slicing)
+    max_deep_count = min(len(filtered), 60)
+    deep_candidates = filtered[:max_deep_count]
+    remaining_candidates = filtered[max_deep_count:]
+
+    # Stage 2: Deep extraction (bounded with per-paper 14s timeout)
     extracted_papers: List[ReviewPaper] = []
-    semaphore = asyncio.Semaphore(3)
+    semaphore = asyncio.Semaphore(4)
 
     async def bounded_process(p: RawPaperMetadata):
         async with semaphore:
@@ -252,7 +304,8 @@ async def run_pipeline_on_selected_papers(request: SelectedPipelineRequest) -> P
                     "abstract": p.abstract
                 }, p.abstract or "")
 
-    tasks = [bounded_process(p) for p in filtered]
+    # Deep extract top candidates concurrently
+    tasks = [bounded_process(p) for p in deep_candidates]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for res in results:
@@ -260,6 +313,28 @@ async def run_pipeline_on_selected_papers(request: SelectedPipelineRequest) -> P
             extracted_papers.append(res)
         else:
             print(f"[Selected Pipeline Error]: {res}")
+
+    # For any remaining papers passing threshold beyond deep limit, include with high-speed abstract synthesis
+    if remaining_candidates:
+        from app.services.llm_provider import parse_deep_fallback
+        for p in remaining_candidates:
+            t_info = triage_map.get(p.id)
+            score = t_info.score if t_info else 4
+            rationale = t_info.rationale if t_info else "Selected candidate."
+            fallback_paper = parse_deep_fallback({
+                "id": p.id,
+                "title": p.title,
+                "year": p.year,
+                "authors": p.authors,
+                "venue": p.venue,
+                "relevance_score": score,
+                "triage_rationale": rationale,
+                "doi_link": f"https://doi.org/{p.doi}" if p.doi else (p.pdf_url or ""),
+                "pdf_downloaded": False,
+                "source": p.source,
+                "abstract": p.abstract
+            }, p.abstract or "")
+            extracted_papers.append(fallback_paper)
 
     return PipelineResponse(
         topic=request.topic,

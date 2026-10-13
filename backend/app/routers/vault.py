@@ -276,3 +276,110 @@ async def delete_vaulted_file(vault_id: str):
         await session.commit()
         return {"status": "success", "message": "File deleted from vault."}
 
+
+@router.post("/sync-disk")
+async def sync_vault_disk_to_db():
+    """
+    Scan the LitBuddy Papers directory and reconcile PDFs on disk with the database.
+    Creates missing vault DB records for any PDF files found on disk that are not
+    yet registered. This resolves the discrepancy between downloaded files and vault count.
+    """
+    from app.db.database import AsyncSessionLocal
+    from app.db.models import PaperDocumentVault
+    from app.services.document_vault_service import VAULT_DIR, compute_vault_id
+    from sqlalchemy import select
+    import hashlib
+
+    if not os.path.exists(VAULT_DIR):
+        return {"synced": 0, "already_registered": 0, "errors": 0, "vault_dir": VAULT_DIR}
+
+    synced = 0
+    already_registered = 0
+    errors = 0
+    skipped_small = 0
+
+    pdf_files = [f for f in os.listdir(VAULT_DIR) if f.lower().endswith(".pdf")]
+
+    async with AsyncSessionLocal() as session:
+        # Load all existing vault IDs for fast lookup
+        existing_res = await session.execute(select(PaperDocumentVault.id, PaperDocumentVault.file_path))
+        existing_records = {row[0]: row[1] for row in existing_res.fetchall()}
+        # Also index by file_path for path-based lookup
+        existing_by_path = {v: k for k, v in existing_records.items() if v}
+
+        for fname in pdf_files:
+            full_path = os.path.join(VAULT_DIR, fname)
+            try:
+                file_size = os.path.getsize(full_path)
+                # Skip tiny files (likely corrupted/incomplete downloads < 10KB)
+                if file_size < 10_000:
+                    skipped_small += 1
+                    continue
+
+                # Check if this file_path is already registered
+                if full_path in existing_by_path:
+                    already_registered += 1
+                    continue
+
+                # Derive vault_id and title from filename convention: {vault_id[:16]}_{title}.pdf
+                # The first 16 chars before underscore are the vault_id prefix
+                parts = fname[:-4].split("_", 1)  # strip .pdf, split on first _
+                vault_id_prefix = parts[0] if len(parts) == 2 else None
+                title_slug = parts[1].replace("_", " ") if len(parts) == 2 else fname[:-4]
+
+                # Check if a record exists with this prefix
+                if vault_id_prefix:
+                    prefix_match = next(
+                        (vid for vid in existing_records if vid.startswith(vault_id_prefix)),
+                        None
+                    )
+                    if prefix_match:
+                        # Update the file_path if needed
+                        rec = await session.get(PaperDocumentVault, prefix_match)
+                        if rec and rec.file_path != full_path:
+                            rec.file_path = full_path
+                            rec.file_size_bytes = file_size
+                            await session.commit()
+                        already_registered += 1
+                        continue
+
+                # Compute a deterministic vault_id from the title slug
+                vault_id = compute_vault_id(None, title_slug)
+
+                # Check if already in DB by computed vault_id
+                if vault_id in existing_records:
+                    already_registered += 1
+                    continue
+
+                # Compute SHA256 of the file
+                with open(full_path, "rb") as f:
+                    file_sha256 = hashlib.sha256(f.read()).hexdigest()
+
+                new_record = PaperDocumentVault(
+                    id=vault_id,
+                    doi=None,
+                    title=title_slug[:200],
+                    file_path=full_path,
+                    file_size_bytes=file_size,
+                    file_sha256=file_sha256,
+                    source_resolved="disk_sync",
+                    download_count=1
+                )
+                session.add(new_record)
+                await session.commit()
+                existing_records[vault_id] = full_path
+                synced += 1
+
+            except Exception as e:
+                print(f"[Vault Sync] Error processing {fname}: {e}")
+                errors += 1
+
+    return {
+        "synced": synced,
+        "already_registered": already_registered,
+        "skipped_small": skipped_small,
+        "errors": errors,
+        "total_pdf_files": len(pdf_files),
+        "vault_dir": VAULT_DIR,
+        "message": f"Sync complete: {synced} new records created, {already_registered} already registered."
+    }

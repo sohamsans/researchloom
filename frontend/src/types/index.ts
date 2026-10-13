@@ -44,6 +44,7 @@ export interface SelectedPipelineRequest {
   topic: string;
   selected_papers: RawPaperMetadata[];
   relevance_threshold: number;
+  max_synthesis_count?: number;
   model_provider?: ModelProvider;
   model_name?: string;
   groq_api_key?: string;

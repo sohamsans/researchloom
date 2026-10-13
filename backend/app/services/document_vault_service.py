@@ -474,20 +474,30 @@ async def fetch_and_vault_paper(paper: VaultPaperItem) -> Tuple[Optional[str], O
     with open(file_path, "wb") as f:
         f.write(pdf_bytes)
 
-    # Save vault record
+    # Save vault record (upsert: update if already exists, insert if new)
     try:
         async with AsyncSessionLocal() as session:
-            vault_entry = PaperDocumentVault(
-                id=vault_id,
-                doi=paper.doi,
-                title=paper.title,
-                file_path=file_path,
-                file_size_bytes=len(pdf_bytes),
-                file_sha256=sha256_hash,
-                source_resolved=source_resolved,
-                download_count=1
-            )
-            session.add(vault_entry)
+            # Check for existing record first (handles race conditions / re-downloads)
+            existing_rec = await session.get(PaperDocumentVault, vault_id)
+            if existing_rec:
+                # Update file path and stats in case the file changed
+                existing_rec.file_path = file_path
+                existing_rec.file_size_bytes = len(pdf_bytes)
+                existing_rec.file_sha256 = sha256_hash
+                existing_rec.source_resolved = source_resolved
+                existing_rec.download_count = (existing_rec.download_count or 0) + 1
+            else:
+                vault_entry = PaperDocumentVault(
+                    id=vault_id,
+                    doi=paper.doi,
+                    title=paper.title,
+                    file_path=file_path,
+                    file_size_bytes=len(pdf_bytes),
+                    file_sha256=sha256_hash,
+                    source_resolved=source_resolved,
+                    download_count=1
+                )
+                session.add(vault_entry)
             await session.commit()
     except Exception as e:
         print(f"[Vault DB Error] Saving record {vault_id}: {e}")

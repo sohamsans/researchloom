@@ -435,12 +435,15 @@ class UniversalLLMClient:
         raise RuntimeError(f"{primary_prov.capitalize()} request failed: {primary_error}")
 
     async def batch_triage(self, topic: str, candidates: List[dict]) -> TriageResponse:
-        """Stage 1: Batch triage candidate abstracts with ultra-lean token compression in safe micro-chunks."""
+        """Stage 1: Batch triage candidate abstracts with ultra-lean token compression in safe micro-chunks.
+        Chunks are processed concurrently (up to 4 in parallel) for high-speed triage on large pools."""
         if not candidates:
             return TriageResponse(evaluations=[])
 
-        all_evaluations = []
+        import asyncio as _asyncio
+
         chunk_size = 12
+        max_concurrent = 4  # Run up to 4 chunks at once without overwhelming LLM rate limits
 
         system_instruction = (
             "You are an objective scientific literature screening analyst.\n"
@@ -450,31 +453,51 @@ class UniversalLLMClient:
             "Scoring: 5=vital, 4=relevant, 3=marginal, 1-2=irrelevant."
         )
 
-        for i in range(0, len(candidates), chunk_size):
-            chunk = candidates[i:i + chunk_size]
-            compact_payload = []
-            for c in chunk:
-                compact_payload.append({
+        # Build all chunks
+        chunks = [candidates[i:i + chunk_size] for i in range(0, len(candidates), chunk_size)]
+
+        async def process_chunk(chunk: List[dict]) -> List:
+            compact_payload = [
+                {
                     "id": str(c.get("id")),
                     "title": c.get("title", ""),
                     "year": c.get("year"),
                     "abstract": compress_abstract(c.get("abstract", ""), max_words=180)
-                })
-
+                }
+                for c in chunk
+            ]
             user_content = f"Topic: {topic}\n\nPapers:\n{json.dumps(compact_payload)}"
-
             try:
                 raw_json = await self.chat_completion(system_instruction, user_content, max_tokens=2048)
                 cleaned = clean_json_text(raw_json)
                 data = json.loads(cleaned)
                 parsed = TriageResponse.model_validate(data)
-                all_evaluations.extend(parsed.evaluations)
+                return parsed.evaluations
             except Exception as e:
                 print(f"[Universal LLM Triage Chunk Error]: {e}, using heuristic fallback for chunk.")
                 fallback = parse_triage_fallback(chunk)
+                return fallback.evaluations
+
+        # Process chunks in concurrent waves bounded by max_concurrent semaphore
+        sem = _asyncio.Semaphore(max_concurrent)
+
+        async def bounded_chunk(chunk):
+            async with sem:
+                return await process_chunk(chunk)
+
+        results = await _asyncio.gather(*[bounded_chunk(c) for c in chunks], return_exceptions=True)
+
+        all_evaluations = []
+        for idx, res in enumerate(results):
+            if isinstance(res, list):
+                all_evaluations.extend(res)
+            else:
+                print(f"[Triage Chunk {idx} Exception]: {res}")
+                fallback = parse_triage_fallback(chunks[idx])
                 all_evaluations.extend(fallback.evaluations)
 
         return TriageResponse(evaluations=all_evaluations)
+
 
     async def deep_extraction(
         self,

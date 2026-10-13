@@ -33,6 +33,8 @@ export const CandidatePreviewTable: React.FC<CandidatePreviewTableProps> = ({
   const [filterText, setFilterText] = useState('');
   const [expandedAbstracts, setExpandedAbstracts] = useState<Set<string>>(new Set());
   const [isZipping, setIsZipping] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [selectedBatchRange, setSelectedBatchRange] = useState<string>('all');
 
   const toggleAbstract = (id: string) => {
     setExpandedAbstracts((prev) => {
@@ -57,16 +59,52 @@ export const CandidatePreviewTable: React.FC<CandidatePreviewTableProps> = ({
 
   const allSelected = papers.length > 0 && selectedIds.size === papers.length;
 
+  const selectedList = useMemo(() => {
+    return papers.filter((p) => selectedIds.has(p.id));
+  }, [papers, selectedIds]);
+
+  // Generate 50-item batch chunks if pool is large (>50 papers)
+  const batchChunks = useMemo(() => {
+    const chunks: Array<{ label: string; start: number; end: number }> = [];
+    const chunkSize = 50;
+    const total = selectedList.length;
+    for (let i = 0; i < total; i += chunkSize) {
+      const start = i + 1;
+      const end = Math.min(i + chunkSize, total);
+      chunks.push({ label: `Batch ${start}–${end}`, start: i, end });
+    }
+    return chunks;
+  }, [selectedList.length]);
+
   const handleDownloadZip = async () => {
-    if (!onBulkDownload) return;
-    const selectedList = papers.filter((p) => selectedIds.has(p.id));
-    if (selectedList.length === 0) return;
+    if (!onBulkDownload || selectedList.length === 0) return;
 
     setIsZipping(true);
     try {
-      await onBulkDownload(selectedList);
+      if (selectedBatchRange !== 'all') {
+        const [startStr, endStr] = selectedBatchRange.split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+        const slice = selectedList.slice(start, end);
+        await onBulkDownload(slice);
+      } else if (selectedList.length > 50) {
+        // Chunk download sequentially in blocks of 50 to prevent browser timeout / crash
+        const chunkSize = 50;
+        for (let i = 0; i < selectedList.length; i += chunkSize) {
+          const slice = selectedList.slice(i, i + chunkSize);
+          setDownloadProgress({ current: Math.min(i + chunkSize, selectedList.length), total: selectedList.length });
+          await onBulkDownload(slice);
+          // Small pause between batches
+          if (i + chunkSize < selectedList.length) {
+            await new Promise((resolve) => setTimeout(resolve, 800));
+          }
+        }
+      } else {
+        await onBulkDownload(selectedList);
+      }
     } finally {
       setIsZipping(false);
+      setDownloadProgress(null);
     }
   };
 
@@ -146,25 +184,47 @@ export const CandidatePreviewTable: React.FC<CandidatePreviewTableProps> = ({
           </div>
 
           {onBulkDownload && (
-            <button
-              type="button"
-              onClick={handleDownloadZip}
-              disabled={selectedIds.size === 0 || isZipping}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 disabled:opacity-40 transition shrink-0 cursor-pointer"
-              title="Download all selected papers as a single .zip archive"
-            >
-              {isZipping ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-zinc-400 border-t-zinc-100 rounded-full animate-spin" />
-                  <span>Zipping...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Download ZIP ({selectedIds.size})</span>
-                </>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {batchChunks.length > 1 && (
+                <select
+                  value={selectedBatchRange}
+                  onChange={(e) => setSelectedBatchRange(e.target.value)}
+                  disabled={isZipping}
+                  className="px-2 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 focus:outline-hidden cursor-pointer"
+                  title="Select download chunk"
+                >
+                  <option value="all">All ({selectedList.length}) in chunks</option>
+                  {batchChunks.map((c) => (
+                    <option key={`${c.start}-${c.end}`} value={`${c.start}-${c.end}`}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
               )}
-            </button>
+              <button
+                type="button"
+                onClick={handleDownloadZip}
+                disabled={selectedIds.size === 0 || isZipping}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 disabled:opacity-40 transition shrink-0 cursor-pointer"
+                title="Download selected papers as a .zip archive (safe chunked mode)"
+              >
+                {isZipping ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-zinc-400 border-t-zinc-100 rounded-full animate-spin" />
+                    <span>
+                      {downloadProgress
+                        ? `Zipping ${downloadProgress.current}/${downloadProgress.total}...`
+                        : 'Zipping...'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Download ZIP ({selectedIds.size})</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
 
           <button

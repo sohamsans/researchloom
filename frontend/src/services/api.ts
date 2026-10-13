@@ -363,7 +363,7 @@ export async function bulkDownloadPapers(papers: any[]): Promise<void> {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `litbuddy_collection_${papers.length}_papers.zip`;
+  a.download = `researchloom_collection_${papers.length}_papers.zip`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -422,6 +422,23 @@ export async function deleteVaultedFile(vaultId: string): Promise<void> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || 'Failed to delete file.');
   }
+}
+
+export async function syncVaultDisk(): Promise<{
+  synced: number;
+  already_registered: number;
+  skipped_small: number;
+  errors: number;
+  total_pdf_files: number;
+  vault_dir: string;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/vault/sync-disk`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Vault sync failed.');
+  }
+  return res.json();
 }
 
 export async function getAllReferences(params?: {
@@ -551,6 +568,7 @@ export const api = {
   listVaultDownloads,
   openVaultFolder,
   deleteVaultedFile,
+  syncVaultDisk,
   getAllReferences,
   exportReferences,
   fetchManuscripts,

@@ -105,6 +105,20 @@ export const DownloadManagerView: React.FC<DownloadManagerViewProps> = ({ onOpen
     }
   };
 
+  const handleSyncVault = async () => {
+    try {
+      setActionNotice('Scanning disk for unregistered PDFs...');
+      const result = await api.syncVaultDisk();
+      setActionNotice(result.message);
+      setTimeout(() => setActionNotice(null), 5000);
+      // Refresh the list to show newly synced files
+      await fetchDownloads();
+    } catch (e: any) {
+      alert(`Vault sync failed: ${e.message}`);
+      setActionNotice(null);
+    }
+  };
+
   const formatBytes = (bytes: number): string => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -167,6 +181,15 @@ export const DownloadManagerView: React.FC<DownloadManagerViewProps> = ({ onOpen
           >
             <FolderOpen className="w-4 h-4 text-[#8ab4f8]" />
             <span>Open Folder</span>
+          </button>
+
+          <button
+            onClick={handleSyncVault}
+            className="inline-flex items-center gap-2 px-4 py-3 bg-[#282a2c] hover:bg-[#3c4043] border border-[#34d399]/30 text-[#34d399] rounded-2xl text-xs font-medium transition-colors shadow-sm"
+            title="Scan the LitBuddy Papers folder and register any PDFs not yet in the vault database"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Sync Vault</span>
           </button>
 
           <button
