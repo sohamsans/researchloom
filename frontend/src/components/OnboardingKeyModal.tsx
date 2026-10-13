@@ -307,7 +307,7 @@ export const OnboardingKeyModal: React.FC = () => {
                       </a>
                     </div>
                     <p className="text-[#9aa0a6] text-[10px] mt-1">
-                      Provides 14,400 free requests per day on `llama-3.1-8b-instant`. Ultra-fast LPUs with zero credit card required.
+                      Provides ultra-fast inference with generous free rate limits on `llama-3.3-70b-versatile`. Ultra-fast LPUs with zero credit card required.
                     </p>
                   </div>
 
@@ -319,7 +319,7 @@ export const OnboardingKeyModal: React.FC = () => {
                       </a>
                     </div>
                     <p className="text-[#9aa0a6] text-[10px] mt-1">
-                      Generous free rate limit of 15 RPM and 1,500 requests daily on `gemini-1.5-flash-8b` with a 1M token context window.
+                      Generous free rate limit of 15 RPM and 1,500 requests daily on `gemini-3.8-flash` with a large token context window.
                     </p>
                   </div>
 

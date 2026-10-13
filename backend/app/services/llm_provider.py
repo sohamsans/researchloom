@@ -32,20 +32,22 @@ def compress_abstract(text: str, max_words: int = 180) -> str:
 def normalize_gemini_model(model_name: Optional[str]) -> str:
     """Normalize user-specified or legacy Gemini model names to valid official endpoints."""
     if not model_name:
-        return "gemini-2.0-flash"
+        return "gemini-3.8-flash"
     m = model_name.lower().strip()
     if m in ("gemini", "default", "auto", ""):
-        return "gemini-2.0-flash"
-    if "3.5" in m or "flash-lite" in m or "8b" in m or "1.5-flash-8b" in m:
-        return "gemini-2.0-flash"
-    if "2.0-flash" in m or "2.0" in m:
-        return "gemini-2.0-flash"
+        return "gemini-3.8-flash"
+    if "3.8" in m:
+        return "gemini-3.8-flash"
+    if "2.5" in m or "2.5-flash" in m:
+        return "gemini-2.5-flash"
+    if "2.0-flash" in m or "2.0" in m or "flash-lite" in m or "8b" in m or "1.5-flash-8b" in m:
+        return "gemini-3.8-flash"
     if "1.5-pro" in m:
         return "gemini-1.5-pro"
     if "1.5-flash" in m:
         return "gemini-1.5-flash"
     if not m.startswith("gemini-"):
-        return "gemini-2.0-flash"
+        return "gemini-3.8-flash"
     return model_name.strip()
 
 def compress_paper_slice(text: str, max_chars: int = 8000) -> str:
@@ -140,8 +142,8 @@ class UniversalLLMClient:
         if self.provider == "gemini":
             self.model_name = normalize_gemini_model(model_name or settings.gemini_model)
         elif self.provider == "groq":
-            if not model_name or "gemini" in model_name.lower() or "deepseek" in model_name.lower():
-                self.model_name = settings.groq_model or "llama-3.1-8b-instant"
+            if not model_name or "gemini" in model_name.lower() or "deepseek" in model_name.lower() or "8b-instant" in model_name.lower():
+                self.model_name = settings.groq_model or "llama-3.3-70b-versatile"
             else:
                 self.model_name = model_name
         elif self.provider == "openrouter":

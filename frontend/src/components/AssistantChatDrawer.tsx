@@ -3,6 +3,7 @@ import { X, Send, ArrowRight, Compass, HelpCircle, Trash2 } from 'lucide-react';
 import { AssistantChatMessage, AssistantChatResponse } from '../types';
 import { sendAssistantChat, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ModelSwitcherPill } from './ModelSwitcherPill';
 
 interface AssistantChatDrawerProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
   const { activeProvider, activeModel, runtimeKeys, token, isAuthenticated } = useAuth();
   const [messages, setMessages] = useState<AssistantChatMessage[]>(() => {
     try {
-      const cached = localStorage.getItem('litbuddy_copilot_chat');
+      const cached = localStorage.getItem('researchloom_copilot_chat');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -28,7 +29,7 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
       {
         role: 'assistant',
         content:
-          'Hello. I am your LitBuddy Research Copilot. Describe your research focus or rough thesis questions in everyday terms, and I will help refine the scope and formulate precise academic search queries.',
+          'Hello. I am your ResearchLoom (Samhita) Copilot. Describe your research focus or rough thesis questions in everyday terms, and I will help refine the scope and formulate precise academic search queries.',
       },
     ];
   });
@@ -39,7 +40,7 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
   // Synchronize Copilot conversation to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('litbuddy_copilot_chat', JSON.stringify(messages));
+      localStorage.setItem('researchloom_copilot_chat', JSON.stringify(messages));
     } catch {}
   }, [messages]);
 
@@ -49,12 +50,12 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
         {
           role: 'assistant',
           content:
-            'Hello. I am your LitBuddy Research Copilot. Describe your research focus or rough thesis questions in everyday terms, and I will help refine the scope and formulate precise academic search queries.',
+            'Hello. I am your ResearchLoom (Samhita) Copilot. Describe your research focus or rough thesis questions in everyday terms, and I will help refine the scope and formulate precise academic search queries.',
         },
       ];
       setMessages(initial);
       try {
-        localStorage.removeItem('litbuddy_copilot_chat');
+        localStorage.removeItem('researchloom_copilot_chat');
       } catch {}
     }
   };
@@ -139,7 +140,7 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
               </div>
               <div>
                 <h3 className="font-semibold text-sm dark:text-[#e3e3e3] text-slate-900">
-                  LitBuddy Copilot
+                  ResearchLoom Copilot
                 </h3>
                 <p className="text-[11px] dark:text-[#9aa0a6] text-[#5f6368]">
                   Research Formulation & Academic Translation
@@ -147,6 +148,7 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              <ModelSwitcherPill />
               <button
                 type="button"
                 onClick={handleClearCopilot}

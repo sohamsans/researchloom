@@ -70,6 +70,7 @@ const MainLayout: React.FC = () => {
   const [currentTopic, setCurrentTopic] = useState('');
   const [searchOffset, setSearchOffset] = useState(0);
   const [discoveredPapers, setDiscoveredPapers] = useState<RawPaperMetadata[]>([]);
+  const [queryHistory, setQueryHistory] = useState<string[]>([]);
   const [selectedPaperIds, setSelectedPaperIds] = useState<Set<string>>(new Set());
   const [reviewResults, setReviewResults] = useState<PipelineResponse | null>(null);
   const [selectedReviewPaper, setSelectedReviewPaper] = useState<ReviewPaper | null>(null);
@@ -114,6 +115,8 @@ const MainLayout: React.FC = () => {
         if (data.currentTopic) setCurrentTopic(data.currentTopic);
         if (data.searchOffset) setSearchOffset(data.searchOffset);
         if (data.discoveredPapers) setDiscoveredPapers(data.discoveredPapers);
+        if (data.queryHistory) setQueryHistory(data.queryHistory);
+        else if (data.currentTopic) setQueryHistory([data.currentTopic]);
         if (data.selectedPaperIds) setSelectedPaperIds(new Set(data.selectedPaperIds));
         if (data.reviewResults) {
           setReviewResults(data.reviewResults);
@@ -314,37 +317,61 @@ const MainLayout: React.FC = () => {
     };
 
     if (params.mode === 'discover') {
-      // Step 1: Candidate Pool Discovery
+      // Step 1: Candidate Pool Discovery (Iterative Multi-Query Candidate Pooling)
       setStage('discovering');
       if (!isAppend) setReviewResults(null);
       try {
         const response = await discoverPapers(request);
-        if (isAppend) {
-          setDiscoveredPapers((prev) => [...prev, ...response.papers]);
-          setSelectedPaperIds((prev) => {
-            const next = new Set(prev);
-            response.papers.forEach((p) => next.add(p.id));
-            return next;
-          });
+
+        // Deduplicate papers by normalized DOI or normalized title
+        const deduplicatePapers = (list: RawPaperMetadata[]): RawPaperMetadata[] => {
+          const seen = new Set<string>();
+          const deduped: RawPaperMetadata[] = [];
+          for (const p of list) {
+            const doiKey = p.doi ? `doi:${p.doi.toLowerCase().trim()}` : null;
+            const normTitle = p.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const titleKey = normTitle.length > 5 ? `title:${normTitle.slice(0, 80)}` : `id:${p.id}`;
+            const key = doiKey || titleKey;
+            if (!seen.has(key)) {
+              seen.add(key);
+              deduped.push(p);
+            }
+          }
+          return deduped;
+        };
+
+        const currentQuery = params.topic.trim();
+        const updatedQueries = queryHistory.includes(currentQuery)
+          ? queryHistory
+          : [...queryHistory, currentQuery];
+        setQueryHistory(updatedQueries);
+
+        let combinedPapers: RawPaperMetadata[] = [];
+        if (isAppend || discoveredPapers.length > 0) {
+          combinedPapers = deduplicatePapers([...discoveredPapers, ...response.papers]);
         } else {
-          setDiscoveredPapers(response.papers);
-          setSelectedPaperIds(new Set(response.papers.map((p) => p.id)));
+          combinedPapers = deduplicatePapers(response.papers);
         }
+
+        setDiscoveredPapers(combinedPapers);
+        setSelectedPaperIds(new Set(combinedPapers.map((p) => p.id)));
         setStage('idle');
 
         // Immediately persist to search history and active session
-        recordSearchHistory(params.topic, response.papers.length);
+        recordSearchHistory(params.topic, combinedPapers.length);
         try {
           const norm = params.topic.toLowerCase().trim();
           localStorage.setItem(`litbuddy_saved_discovery_${norm}`, JSON.stringify({
             topic: params.topic,
-            papers: response.papers
+            papers: combinedPapers,
+            queries: updatedQueries
           }));
           localStorage.setItem('litbuddy_active_session', JSON.stringify({
             currentTopic: params.topic,
             searchOffset: newOffset,
-            discoveredPapers: isAppend ? [...discoveredPapers, ...response.papers] : response.papers,
-            selectedPaperIds: Array.from(isAppend ? [...discoveredPapers, ...response.papers] : response.papers).map((p) => p.id),
+            discoveredPapers: combinedPapers,
+            queryHistory: updatedQueries,
+            selectedPaperIds: combinedPapers.map((p) => p.id),
             reviewResults: null,
             viewMode: 'matrix',
             mainTab: 'research'
@@ -482,6 +509,7 @@ const MainLayout: React.FC = () => {
   const resetToNewReview = () => {
     setCurrentTopic('');
     setDiscoveredPapers([]);
+    setQueryHistory([]);
     setSelectedPaperIds(new Set());
     setReviewResults(null);
     setError(null);
@@ -490,6 +518,19 @@ const MainLayout: React.FC = () => {
     try {
       localStorage.removeItem('litbuddy_active_session');
     } catch {}
+  };
+
+  const handleRemovePooledQuery = (qToRemove: string) => {
+    const updated = queryHistory.filter((q) => q.toLowerCase().trim() !== qToRemove.toLowerCase().trim());
+    setQueryHistory(updated);
+  };
+
+  const handleClearPool = () => {
+    if (window.confirm('Reset current candidate pool?')) {
+      setDiscoveredPapers([]);
+      setSelectedPaperIds(new Set());
+      setQueryHistory([]);
+    }
   };
 
   return (
@@ -772,6 +813,9 @@ const MainLayout: React.FC = () => {
                     onProceedToSynthesis={handleProceedToSynthesis}
                     onBulkDownload={handleBulkDownload}
                     isProcessing={stage === 'triaging' || stage === 'extracting'}
+                    pooledQueries={queryHistory}
+                    onRemoveQuery={handleRemovePooledQuery}
+                    onClearPool={handleClearPool}
                   />
                 </div>
               )}

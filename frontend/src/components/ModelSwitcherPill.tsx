@@ -12,9 +12,9 @@ interface ModelOption {
 }
 
 const MODEL_OPTIONS: ModelOption[] = [
-  { id: 'gemini', name: 'Google Gemini Flash', model: 'gemini-2.0-flash', tag: 'Fast & Free', keyName: 'gemini' },
-  { id: 'groq', name: 'Groq Cloud Llama', model: 'llama-3.1-8b-instant', tag: 'High Speed', keyName: 'groq' },
-  { id: 'openrouter', name: 'OpenRouter Free', model: 'meta-llama/llama-3.1-8b-instruct:free', tag: ':free models', keyName: 'openrouter' },
+  { id: 'gemini', name: 'Google Gemini Flash', model: 'gemini-3.8-flash', tag: 'Fast & Free', keyName: 'gemini' },
+  { id: 'groq', name: 'Groq Cloud Llama 3.3', model: 'llama-3.3-70b-versatile', tag: 'High Speed', keyName: 'groq' },
+  { id: 'openrouter', name: 'OpenRouter Free', model: 'meta-llama/llama-3.3-70b-instruct:free', tag: ':free models', keyName: 'openrouter' },
   { id: 'deepseek', name: 'DeepSeek Chat', model: 'deepseek-chat', tag: 'V3 Deep', keyName: 'deepseek' },
   { id: 'nvidia', name: 'NVIDIA NIM', model: 'meta/llama-3.1-8b-instruct', tag: 'Cloud NIM', keyName: 'nvidia' },
 ];
@@ -49,13 +49,13 @@ export const ModelSwitcherPill: React.FC<{ className?: string }> = ({ className 
 
   const getShortModelLabel = (model: string, provider: ModelProvider) => {
     if (!model || model === provider) {
-      if (provider === 'gemini') return '2.0-flash';
-      if (provider === 'groq') return 'llama-3.1';
+      if (provider === 'gemini') return '3.8-flash';
+      if (provider === 'groq') return 'llama-3.3';
       return provider;
     }
     if (model.startsWith('gemini-')) return model.replace('gemini-', '');
-    if (model.includes('llama-3.1')) return 'llama-3.1';
     if (model.includes('llama-3.3')) return 'llama-3.3';
+    if (model.includes('llama-3.1')) return 'llama-3.1';
     return model.split('/')[1] || model.split('-')[0] || model;
   };
 

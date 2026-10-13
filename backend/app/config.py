@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     academic_contact_email: str = "autolit@research.local"
     
     # Lightweight, high-speed, 100% free cloud models
-    groq_model: str = "openai/gpt-oss-20b"
-    gemini_model: str = "gemini-2.0-flash"
+    groq_model: str = "llama-3.3-70b-versatile"
+    gemini_model: str = "gemini-3.8-flash"
     
     # Defaults for pipeline
     default_max_results: int = 20

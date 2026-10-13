@@ -4,13 +4,21 @@ from app.config import get_settings
 from app.models.schemas import AssistantChatMessage, AssistantChatResponse
 from app.services.llm_provider import UniversalLLMClient, clean_json_text
 
-def get_assistant_fallback(user_input: str) -> AssistantChatResponse:
-    """Friendly fallback when LLM credentials are not configured or quota is exceeded."""
-    return AssistantChatResponse(
-        assistant_reply=(
-            "Hello! I am your LitBuddy Research Copilot. To unlock full real-time conversational analysis and query translation, "
+def get_assistant_fallback(user_input: str, error_detail: Optional[str] = None) -> AssistantChatResponse:
+    """Friendly fallback when LLM credentials are not configured or when an API error occurs."""
+    if error_detail:
+        reply = (
+            f"Hello! I am your ResearchLoom (Samhita) Copilot.\n\n"
+            f"⚠️ Diagnostic Notice: The active AI model returned an error:\n{error_detail}\n\n"
+            "Please check your API key in BYOK Settings (or switch models via the top model switcher pill)."
+        )
+    else:
+        reply = (
+            "Hello! I am your ResearchLoom (Samhita) Copilot. To unlock full real-time conversational analysis and query translation, "
             "please add a free API key (such as Groq or Google Gemini) in BYOK Settings."
-        ),
+        )
+    return AssistantChatResponse(
+        assistant_reply=reply,
         clarifying_questions=[
             "What specific empirical or theoretical question are you aiming to solve?",
             "Which literature databases (arXiv, OpenAlex, Crossref) are you targeting?"
@@ -49,7 +57,7 @@ async def generate_assistant_response(
     transcript = "\n".join(transcript_lines)
 
     system_prompt = (
-        "You are LitBuddy Copilot, an elite conversational academic research advisor.\n"
+        "You are ResearchLoom (Samhita) Copilot, an elite conversational academic research advisor.\n"
         "Converse naturally and intelligently with the researcher, helping them clarify their research questions, brainstorm angles, and formulate precise queries.\n"
         "Return a valid JSON object with keys:\n"
         "- 'assistant_reply': A natural, intelligent, comprehensive conversational response directly answering the user.\n"
@@ -82,8 +90,9 @@ async def generate_assistant_response(
         data = json.loads(cleaned)
         return AssistantChatResponse.model_validate(data)
     except Exception as e:
-        print(f"[Assistant Service Universal LLM Error]: {e}, using fallback.")
-        return get_assistant_fallback(last_user_text or "literature review")
+        err_str = str(e)
+        print(f"[Assistant Service Universal LLM Error]: {err_str}, using fallback.")
+        return get_assistant_fallback(last_user_text or "literature review", error_detail=err_str if llm.has_any_configured_key() else None)
 
 def compress_paper_context(papers: List[dict], max_papers: int = 15) -> str:
     """Compress paper metadata and syntheses into high-signal factual context."""
@@ -152,7 +161,7 @@ async def answer_paper_qa(
     history_context = "\n".join(history_turns) if history_turns else "None"
 
     system_prompt = (
-        "You are LitBuddy, an elite, highly knowledgeable scientific literature research partner.\n"
+        "You are ResearchLoom (Samhita), an elite, highly knowledgeable scientific literature research partner.\n"
         "You chat naturally, thoroughly, and conversationally like ChatGPT or Gemini, fully grounded in the provided papers.\n\n"
         "CRITICAL DIRECTIVES:\n"
         "1. Thorough Answers: Provide rich, deep, multi-paragraph academic explanations. Do not give shallow one-liners.\n"

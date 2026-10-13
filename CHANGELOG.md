@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.2.0-beta.2] - 2026-10-13
+
+### Fixed
+- **BUG-116 (Gemini and Groq 404 Model Deprecation & Transparent Copilot Diagnostics)**:
+  - Migrated obsolete hardcoded Google Gemini endpoints to official `gemini-3.8-flash` (with automated normalization handling legacy `2.0-flash` and `2.5-flash` requests).
+  - Migrated obsolete Groq model `llama-3.1-8b-instant` (HTTP 404 `model_not_found`) to Groq's high-speed cloud model `llama-3.3-70b-versatile`.
+  - Replaced legacy LitBuddy brand strings with ResearchLoom (Samhita) Copilot in all greetings, prompts, and storage keys.
+  - Replaced misleading canned Copilot fallback with genuine error diagnostics surfacing authentic API responses (e.g. quota limits, invalid keys, rate limits).
+  - Added `<ModelSwitcherPill />` directly in the Copilot chat drawer header for 1-click model provider changes.
+
+- **BUG-117 (Multi-Query Iterative Candidate Pooling & Deduplication)**:
+  - Implemented iterative candidate pooling in `App.tsx` allowing researchers to execute 5-10 distinct keyword queries within the same project.
+  - Candidate literature now accumulates into a unified, deduplicated pool matching normalized DOIs and alphanumeric title fingerprints.
+  - Added multi-query tag strip in `CandidatePreviewTable.tsx` displaying individual query chips with single-click query deletion and pool resetting.
+  - Enabled single-click "Synthesize Selected" on the combined candidate pool across all queried topics.
+
+---
+
 ## [v4.2.0-beta.1] - 2026-10-10
 
 ### Fixed

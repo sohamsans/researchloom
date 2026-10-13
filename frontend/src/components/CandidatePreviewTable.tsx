@@ -12,6 +12,9 @@ interface CandidatePreviewTableProps {
   onProceedToSynthesis: () => void;
   onBulkDownload?: (papers: RawPaperMetadata[]) => void;
   isProcessing: boolean;
+  pooledQueries?: string[];
+  onRemoveQuery?: (query: string) => void;
+  onClearPool?: () => void;
 }
 
 export const CandidatePreviewTable: React.FC<CandidatePreviewTableProps> = ({
@@ -23,6 +26,9 @@ export const CandidatePreviewTable: React.FC<CandidatePreviewTableProps> = ({
   onProceedToSynthesis,
   onBulkDownload,
   isProcessing,
+  pooledQueries = [],
+  onRemoveQuery,
+  onClearPool,
 }) => {
   const [filterText, setFilterText] = useState('');
   const [expandedAbstracts, setExpandedAbstracts] = useState<Set<string>>(new Set());
@@ -66,6 +72,45 @@ export const CandidatePreviewTable: React.FC<CandidatePreviewTableProps> = ({
 
   return (
     <div className="w-full bg-zinc-900/40 border border-zinc-800 rounded-xl shadow-xs overflow-hidden mb-8 transition-all">
+      {/* Multi-Query Candidate Pool Strip */}
+      {pooledQueries.length > 0 && (
+        <div className="px-5 py-2.5 bg-zinc-950/80 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-zinc-400 font-medium mr-1 text-[11px] uppercase tracking-wider">
+              Pooled Queries ({pooledQueries.length}):
+            </span>
+            {pooledQueries.map((q, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700/80 text-sky-400 text-[11px] font-medium"
+              >
+                <span>"{q}"</span>
+                {onRemoveQuery && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveQuery(q)}
+                    className="text-zinc-500 hover:text-zinc-200 ml-0.5"
+                    title={`Remove "${q}" from pool`}
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+
+          {onClearPool && (
+            <button
+              type="button"
+              onClick={onClearPool}
+              className="text-[11px] text-zinc-500 hover:text-rose-400 transition cursor-pointer"
+            >
+              Reset Pool
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Native Desktop Workbench Toolbar */}
       <div className="sticky top-0 z-10 px-5 py-3 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
