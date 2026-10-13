@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.2.0-beta.3] - 2026-10-13
+
+### Fixed
+- **BUG-121 (Sidebar Chat Fragmentation — Persistent Session ID)**:
+  - Root cause: `activeSessionId` was initialized as `session_${Date.now()}` in React `useState` but never persisted to localStorage. Every page refresh generated a new session ID, causing `recordSearchHistory` to treat each refresh as a new notebook, creating one sidebar entry per page load.
+  - Fix: `useState` initializer now reads `rl_active_session_id` from localStorage on mount and returns the stored ID if present. Writes back to localStorage on first creation. `resetToNewReview` generates a fresh session ID, persists it, AND removes the old `litbuddy_active_session` key. Consecutive searches within the same session now reliably update the same sidebar entry.
+
+- **BUG-122 (Vault DB Count Discrepancy — Silent IntegrityError on Duplicate Paper)**:
+  - Root cause: `fetch_and_vault_paper` called `session.add(vault_entry)` then caught `IntegrityError` silently when a paper with the same `vault_id` already existed. 700 papers on disk had 0 DB records because they were all re-downloads of previously cached entries.
+  - Fix: switched to explicit `session.get(PaperDocumentVault, vault_id)` upsert pattern — if the record exists, update `file_path`, `file_size_bytes`, `file_sha256`, `source_resolved`, and increment `download_count`; if not, insert fresh. No `IntegrityError` possible.
+
+- **BUG-123 (Triage Slowness on Large Pools — Sequential Chunk Processing)**:
+  - Root cause: `batch_triage` processed 64 sequential LLM API calls (chunk_size=12 on 774 papers) — each call waited for the prior to finish. Total triage time: 2-3 minutes.
+  - Fix: refactored `batch_triage` to build all chunks upfront, then run concurrently with `asyncio.Semaphore(4)` — 4 chunks at a time. ~4x reduction in wall-clock triage time for large pools (from ~3 min to ~45s).
+
+- **BUG-124 (Vault Disk/DB Reconciliation — No Recovery Path for Existing Downloads)**:
+  - Added `POST /api/vault/sync-disk` backend endpoint: scans `LitBuddy Papers/` directory for all PDFs, skips tiny/corrupted files (<10 KB), matches against existing DB records by file_path and vault_id prefix, and creates missing vault DB entries for any unregistered PDFs. Returns a full report with counts.
+  - Added "Sync Vault" button in the Downloads Manager UI (`DownloadManagerView.tsx`) that calls this endpoint, surfaces the result in the action notice, and refreshes the list. Allows one-click reconciliation after bulk downloads.
+
+---
+
 ## [v4.2.0-beta.2] - 2026-10-13
 
 ### Fixed
