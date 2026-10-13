@@ -60,21 +60,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [sidebarMode, setSidebarMode] = useState<'chat' | 'spark'>('chat');
 
   const refreshSearches = useCallback(() => {
+    // Helper to deduplicate list of searches by normalized topic or query hash
+    const deduplicateList = (items: SavedSearchItem[]): SavedSearchItem[] => {
+      const seen = new Set<string>();
+      const result: SavedSearchItem[] = [];
+      for (const item of items) {
+        if (!item || !item.topic) continue;
+        const norm = item.topic.toLowerCase().trim();
+        const hashKey = item.query_hash ? `hash:${item.query_hash}` : null;
+        const topicKey = `topic:${norm}`;
+        if (!seen.has(topicKey) && (!hashKey || !seen.has(hashKey))) {
+          seen.add(topicKey);
+          if (hashKey) seen.add(hashKey);
+          result.push(item);
+        }
+      }
+      return result;
+    };
+
     // 1. Fetch from backend DiscoveryCache
     api.getSavedSearches().then((backendSearches) => {
       // 2. Also merge any local recent searches from localStorage
       try {
         const localListRaw = localStorage.getItem('researchloom_local_searches');
         const localList: SavedSearchItem[] = localListRaw ? JSON.parse(localListRaw) : [];
-        const combined = [...localList, ...(backendSearches || [])];
+        const combined = deduplicateList([...localList, ...(backendSearches || [])]);
         setRecentSearches(combined);
       } catch {
-        setRecentSearches(backendSearches || []);
+        setRecentSearches(deduplicateList(backendSearches || []));
       }
     }).catch(() => {
       try {
         const localListRaw = localStorage.getItem('researchloom_local_searches');
-        if (localListRaw) setRecentSearches(JSON.parse(localListRaw));
+        if (localListRaw) setRecentSearches(deduplicateList(JSON.parse(localListRaw)));
       } catch {}
     });
   }, []);

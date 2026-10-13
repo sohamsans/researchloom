@@ -574,6 +574,7 @@ const MainLayout: React.FC = () => {
                 setStage('completed');
                 setViewMode('chat');
                 setIsSourcesSidebarOpen(true);
+                setQueryHistory([topic]);
                 return;
               }
             }
@@ -585,6 +586,11 @@ const MainLayout: React.FC = () => {
               if (parsed && parsed.papers && parsed.papers.length > 0) {
                 setDiscoveredPapers(parsed.papers);
                 setSelectedPaperIds(new Set(parsed.papers.map((p: any) => p.id)));
+                if (parsed.queries && Array.isArray(parsed.queries)) {
+                  setQueryHistory(parsed.queries);
+                } else {
+                  setQueryHistory([topic]);
+                }
                 setReviewResults(null);
                 setStage('idle');
                 setViewMode('matrix');
@@ -592,6 +598,7 @@ const MainLayout: React.FC = () => {
               }
             }
           } catch {}
+          setQueryHistory([topic]);
           handleSearch({
             topic,
             maxResults: 50,
