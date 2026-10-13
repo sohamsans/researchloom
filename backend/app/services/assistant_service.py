@@ -236,13 +236,13 @@ async def answer_paper_qa(
 
         if not llm.has_any_configured_key() or "No API key configured" in err_msg:
             answer_text = (
-                f"⚠️ **No active API key configured for {active_prov}.**\n\n"
+                f"**No active API key configured for {active_prov}.**\n\n"
                 "Please open **BYOK Settings** from the top bar to add your free Google Gemini or Groq API key. "
                 "All your gathered papers, citations, and downloaded PDFs remain safely cached in the Document Vault."
             )
         else:
             answer_text = (
-                f"⚠️ **{active_prov} query could not be completed.**\n\n"
+                f"**{active_prov} query could not be completed.**\n\n"
                 f"**Diagnostic Details:** {err_msg}\n\n"
                 "Please verify your API key in **BYOK Settings**, check your daily quota limits, "
                 "or switch to another provider using the model switcher pill in the top header."

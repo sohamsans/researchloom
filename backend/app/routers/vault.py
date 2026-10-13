@@ -115,7 +115,7 @@ async def bulk_download_papers(req: BulkDownloadRequest):
         raise HTTPException(status_code=400, detail="No papers selected for bulk download.")
 
     zip_stream = await create_bulk_papers_zip(req.papers)
-    filename = f"litbuddy_collection_{len(req.papers)}_papers.zip"
+    filename = f"researchloom_collection_{len(req.papers)}_papers.zip"
 
     return StreamingResponse(
         zip_stream,
