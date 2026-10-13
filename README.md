@@ -92,7 +92,7 @@ ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready stand
 - **Requirements**: Windows 10 or 11 (64-bit). No Python, Node.js, or command-line installation required. Simply extract the archive or run `ResearchLoom.exe`.
 
 ### Note on Browser & Windows SmartScreen Warnings
-Because ResearchLoom is a free open-source student project without an expensive ($300-$500/year) commercial corporate code-signing certificate:
+Because ResearchLoom is a free open-source student project without an expensive (\$300-\$500/year) commercial corporate code-signing certificate:
 1. **Google Chrome / Browser Warning**: If Chrome prompts "ResearchLoom.exe isn't commonly downloaded and may be dangerous", click the arrow next to the download and select **Keep** (or download the `.zip` archive instead).
 2. **Windows SmartScreen Prompt**: If Windows shows "Windows protected your PC / Unknown Publisher", click **More info** and select **Run anyway**.
 The application is 100% open-source, contains zero telemetry or trackers, and full source code is public and inspectable in this repository.

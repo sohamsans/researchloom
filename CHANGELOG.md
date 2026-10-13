@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `POST /api/vault/sync-disk` backend endpoint: scans `LitBuddy Papers/` directory for all PDFs, skips tiny/corrupted files (<10 KB), matches against existing DB records by file_path and vault_id prefix, and creates missing vault DB entries for any unregistered PDFs. Returns a full report with counts.
   - Added "Sync Vault" button in the Downloads Manager UI (`DownloadManagerView.tsx`) that calls this endpoint, surfaces the result in the action notice, and refreshes the list. Allows one-click reconciliation after bulk downloads.
 
+- **BUG-125 (Frontend Chat Duplication & Multi-Query History Preservation)**:
+  - `Sidebar.tsx`: Added dual-layer deduplication in `refreshSearches` comparing both normalized topic keys and query hashes when merging backend DiscoveryCache with local storage, eliminating ghost/duplicate chats.
+  - `App.tsx`: Preserved and restored the full multi-query history array (`parsed.queries`) when selecting previous notebooks from the sidebar, keeping query tags interactive.
+
+- **BUG-126 (README LaTeX Math Parsing Corruption)**:
+  - Escaped unescaped dollar signs in `README.md` (`\$300-\$500/year`), preventing markdown renderers from mistakenly parsing standard prose as inline LaTeX math blocks.
+
 ---
 
 ## [v4.2.0-beta.2] - 2026-10-13
