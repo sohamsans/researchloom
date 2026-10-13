@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added multi-query tag strip in `CandidatePreviewTable.tsx` displaying individual query chips with single-click query deletion and pool resetting.
   - Enabled single-click "Synthesize Selected" on the combined candidate pool across all queried topics.
 
+- **BUG-118 (Bulk PDF Download Failure & Sci-Hub Resolver Syntax Error)**:
+  - Fixed syntax error in `scihub_resolver.py` line 29 (`unexpected character after line continuation character`) that broke runtime dynamic import of paper resolvers during `fetch_and_vault_paper()`.
+  - Fixed issue where bulk download ZIP bundles contained 0 PDFs (`Successfully Vaulted: 0`).
+  - Updated bulk ZIP archive `README.txt` and `manifest.json` branding from LitBuddy to ResearchLoom (Samhita).
+
 ---
 
 ## [v4.2.0-beta.1] - 2026-10-10

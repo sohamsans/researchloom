@@ -109,7 +109,7 @@ async def create_bulk_papers_zip(papers: List[VaultPaperItem]) -> io.BytesIO:
 
         # Add manifest.json
         manifest_content = json.dumps({
-            "tool": "LitBuddy Academic Document Vault",
+            "tool": "ResearchLoom (Samhita) Document Vault",
             "total_papers": len(papers),
             "successfully_bundled": sum(1 for e in manifest_entries if e["downloaded"]),
             "papers": manifest_entries
@@ -118,8 +118,8 @@ async def create_bulk_papers_zip(papers: List[VaultPaperItem]) -> io.BytesIO:
 
         # Add README.txt
         readme_content = (
-            "LitBuddy Literature Review - Paper Bundle\n"
-            "=========================================\n\n"
+            "ResearchLoom (Samhita) Literature Review - Paper Bundle\n"
+            "=======================================================\n\n"
             f"Total Requested: {len(papers)}\n"
             f"Successfully Vaulted: {sum(1 for e in manifest_entries if e['downloaded'])}\n\n"
             "Contents:\n"
