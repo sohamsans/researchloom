@@ -8,10 +8,10 @@
   - [x] 1.5 Click-to-Source PDF Bounding Box Viewer Integration (`frontend/src/components/PdfViewerModal.tsx`) <!-- id: 5 -->
   - [x] 1.6 Verification & Matrix Test Suite <!-- id: 6 -->
 
-- [ ] Phase 2: Systematic Screening & PRISMA 2020 Workflow <!-- id: 7 -->
-  - [ ] 2.1 Screening Audit Database & Endpoints (`backend/app/routers/screening.py`) <!-- id: 8 -->
-  - [ ] 2.2 Keyboard Hotkey Triage Interface (`J`/`K`/`L`) & Exclusion Taxonomy <!-- id: 9 -->
-  - [ ] 2.3 Interactive Vector PRISMA 2020 Flowchart (`PRISMAFlowDiagram.tsx`) <!-- id: 10 -->
+- [x] Phase 2: Systematic Screening & PRISMA 2020 Workflow <!-- id: 7 -->
+  - [x] 2.1 Screening Audit Database & Endpoints (`backend/app/routers/screening.py`) <!-- id: 8 -->
+  - [x] 2.2 Keyboard Hotkey Triage Interface (`J`/`K`/`L`) & Exclusion Taxonomy <!-- id: 9 -->
+  - [x] 2.3 Interactive Vector PRISMA 2020 Flowchart (`PRISMAFlowDiagram.tsx`) <!-- id: 10 -->
 
 - [ ] Phase 3: The "Loom" Citation & Lineage Graph (Miro Canvas Extension) <!-- id: 11 -->
   - [ ] 3.1 Open Scholarly Graph Seed Expansion & Edge Classification <!-- id: 12 -->

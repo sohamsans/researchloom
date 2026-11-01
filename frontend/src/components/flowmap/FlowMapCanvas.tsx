@@ -40,7 +40,7 @@ import { PaperPoolSelectorModal } from './PaperPoolSelectorModal';
 
 export interface FlowNode {
   id: string;
-  type: 'paper' | 'folder' | 'note';
+  type: 'paper' | 'folder' | 'note' | 'frame';
   title: string;
   subtitle?: string;
   year?: number;
@@ -51,6 +51,8 @@ export interface FlowNode {
   is_vaulted?: boolean;
   x: number;
   y: number;
+  width?: number;
+  height?: number;
   citationsCount?: number;
   abstract?: string;
   core_problem?: string;
@@ -70,7 +72,7 @@ export interface FlowEdge {
   source: string;
   target: string;
   label?: string;
-  type?: 'cites' | 'user_connection' | 'trail';
+  type?: 'cites' | 'user_connection' | 'trail' | 'supporting' | 'contrasting' | 'mentioning';
 }
 
 export interface SavedCanvas {
@@ -446,7 +448,54 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // Hierarchical "Clean & Orient" Layout Algorithm with Row Wrapping
+  // Chronological Swimlane Timeline Layout: Snaps papers into horizontal year bands
+  const handleTimelineSwimlaneLayout = useCallback(() => {
+    if (nodes.length === 0) return;
+
+    // Group papers and nodes by publication year
+    const yearGroups: { [year: string]: FlowNode[] } = {};
+    const noYearNodes: FlowNode[] = [];
+
+    nodes.forEach((n) => {
+      if (n.year) {
+        const yStr = String(n.year);
+        if (!yearGroups[yStr]) yearGroups[yStr] = [];
+        yearGroups[yStr].push(n);
+      } else {
+        noYearNodes.push(n);
+      }
+    });
+
+    const sortedYears = Object.keys(yearGroups).sort((a, b) => parseInt(a) - parseInt(b));
+    const bandWidth = 360;
+    const nodeSpacingY = 180;
+    const updated = [...nodes];
+
+    sortedYears.forEach((year, colIdx) => {
+      const colX = 120 + colIdx * bandWidth;
+      const colNodes = yearGroups[year];
+      colNodes.forEach((node, rowIdx) => {
+        const target = updated.find((n) => n.id === node.id);
+        if (target) {
+          target.x = colX;
+          target.y = 120 + rowIdx * nodeSpacingY;
+        }
+      });
+    });
+
+    if (noYearNodes.length > 0) {
+      const colX = 120 + sortedYears.length * bandWidth;
+      noYearNodes.forEach((node, rowIdx) => {
+        const target = updated.find((n) => n.id === node.id);
+        if (target) {
+          target.x = colX;
+          target.y = 120 + rowIdx * nodeSpacingY;
+        }
+      });
+    }
+
+    setNodes(updated);
+  }, [nodes]);
   // Arranges parent citations, expanded child papers, and mind-map notes into neat topological tiers
   const handleCleanAndOrient = useCallback(() => {
     if (nodes.length === 0) return;
@@ -1041,6 +1090,17 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
             <span>Clean &amp; Orient</span>
           </button>
 
+          {/* Chronological Timeline Swimlanes Button */}
+          <button
+            type="button"
+            onClick={handleTimelineSwimlaneLayout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl antigravity-glass text-xs font-medium text-zinc-300 hover:text-sky-300 transition-colors shadow-lg"
+            title="Timeline View: Snap literature chronologically by publication year"
+          >
+            <Compass className="w-3.5 h-3.5 text-sky-400" />
+            <span>Year Swimlanes</span>
+          </button>
+
           {/* Save Canvas State */}
           <button
             type="button"
@@ -1168,13 +1228,20 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
           const midY = (startY + endY) / 2;
 
           const isTrail = edge.type === 'trail';
+          const isSupporting = edge.type === 'supporting';
+          const isContrasting = edge.type === 'contrasting';
+
           const strokeColor = isTrail
             ? 'rgba(52, 211, 153, 0.75)'
+            : isSupporting
+            ? 'rgba(34, 197, 94, 0.85)' // Emerald 500
+            : isContrasting
+            ? 'rgba(239, 68, 68, 0.85)' // Red 500
             : edge.type === 'cites'
             ? 'rgba(255, 255, 255, 0.25)'
             : 'rgba(56, 189, 248, 0.65)';
           const strokeDash = edge.type === 'cites' ? '4 4' : undefined;
-          const marker = isTrail ? 'url(#arrowhead-emerald)' : 'url(#arrowhead-white)';
+          const marker = isTrail || isSupporting ? 'url(#arrowhead-emerald)' : 'url(#arrowhead-white)';
 
           return (
             <g key={edge.id} className="group">
