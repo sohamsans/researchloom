@@ -13,9 +13,9 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="LitBuddy API",
-    description="LitBuddy: Autonomous Literature Review Engine with Dual-Layer Caching, Document Vault, and Multi-Provider BYOK Hub.",
-    version="4.2.0",
+    title="ResearchLoom API",
+    description="ResearchLoom (Samhita): Autonomous Literature Review Engine with Dual-Layer Caching, Document Vault, and Multi-Provider BYOK Hub.",
+    version="4.3.1",
     lifespan=lifespan
 )
 
@@ -163,7 +163,7 @@ def root():
 @app.get("/api/health")
 def health_check():
     """Lightweight health probe used by the desktop splash screen."""
-    return {"status": "ok", "version": "4.1.0"}
+    return {"status": "ok", "version": "4.3.1"}
 
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
