@@ -122,3 +122,49 @@ jobs:
             dist/ResearchLoom-windows-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-android:
+    name: Build Android Tablet APK (.apk)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build Frontend & Sync Capacitor
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          npx cap sync android
+          cd ..
+
+      - name: Build Android Release APK with Gradle
+        run: |
+          cd frontend/android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+          cd ../..
+          mkdir -p dist_apk
+          cp frontend/android/app/build/outputs/apk/debug/app-debug.apk dist_apk/ResearchLoom-android-tablet.apk
+
+      - name: Upload Android Tablet APK to Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist_apk/ResearchLoom-android-tablet.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

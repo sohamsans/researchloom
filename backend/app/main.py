@@ -48,60 +48,167 @@ TABLET_PAD_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>LitBuddy Stylus Pad</title>
+  <title>ResearchLoom Stylus Pad</title>
   <style>
-    body { margin: 0; padding: 0; background: #07080a; color: #ededed; font-family: -apple-system, sans-serif; overflow: hidden; touch-action: none; }
-    header { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #0e0f12; border-bottom: 1px solid #27272a; }
-    h1 { font-size: 14px; margin: 0; font-weight: 600; }
-    button { background: #27272a; color: #fff; border: 1px solid #3f3f46; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; }
-    button.primary { background: #fff; color: #000; font-weight: 600; border: none; }
-    canvas { display: block; width: 100vw; height: calc(100vh - 48px); background: #07080a; touch-action: none; cursor: crosshair; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; background: #07080a; color: #ededed; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; touch-action: none; user-select: none; }
+    header { height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; background: #0e0f12; border-bottom: 1px solid #27272a; }
+    .title-group { display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+    h1 { font-size: 13px; margin: 0; font-weight: 600; letter-spacing: -0.2px; color: #f4f4f5; }
+    .badge { font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 9999px; background: #27272a; color: #a1a1aa; border: 1px solid #3f3f46; }
+    .toolbar { display: flex; align-items: center; gap: 8px; }
+    .tools { display: flex; align-items: center; gap: 4px; background: #18181b; padding: 3px; border-radius: 10px; border: 1px solid #27272a; }
+    .tool-btn { width: 32px; height: 32px; border-radius: 7px; border: none; background: transparent; color: #a1a1aa; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .tool-btn.active { background: #27272a; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+    .color-picker { display: flex; align-items: center; gap: 5px; margin: 0 4px; }
+    .color-swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+    .color-swatch.active { border-color: #fff; transform: scale(1.15); }
+    button.action-btn { background: #27272a; color: #e4e4e7; border: 1px solid #3f3f46; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+    button.primary { background: #f4f4f5; color: #09090b; font-weight: 600; border: none; box-shadow: 0 2px 8px rgba(255,255,255,0.15); }
+    button.primary:active { transform: scale(0.97); }
+    canvas { display: block; width: 100vw; height: calc(100vh - 52px); background: #07080a; touch-action: none; cursor: crosshair; }
+    #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(50px); background: #18181b; color: #f4f4f5; padding: 8px 16px; border-radius: 20px; font-size: 12px; border: 1px solid #3f3f46; box-shadow: 0 8px 24px rgba(0,0,0,0.7); opacity: 0; transition: all 0.25s ease; pointer-events: none; z-index: 100; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
   </style>
 </head>
 <body>
   <header>
-    <h1>LitBuddy Wireless Stylus Pad</h1>
-    <div style="display:flex;gap:8px;">
-      <button onclick="clearCanvas()">Clear</button>
-      <button class="primary" onclick="sendToLitBuddy()">Send to Paper</button>
+    <div class="title-group">
+      <span class="status-dot"></span>
+      <h1>ResearchLoom Stylus Pad</h1>
+      <span class="badge" id="pressure-stat">Stylus Ready</span>
+    </div>
+
+    <div class="toolbar">
+      <div class="tools">
+        <button type="button" class="tool-btn active" id="pen-btn" onclick="setMode('pen')" title="Pen">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        </button>
+        <button type="button" class="tool-btn" id="eraser-btn" onclick="setMode('eraser')" title="Eraser">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+        </button>
+      </div>
+
+      <div class="color-picker">
+        <div class="color-swatch active" style="background:#ffffff;" onclick="setColor('#ffffff', this)"></div>
+        <div class="color-swatch" style="background:#38bdf8;" onclick="setColor('#38bdf8', this)"></div>
+        <div class="color-swatch" style="background:#34d399;" onclick="setColor('#34d399', this)"></div>
+        <div class="color-swatch" style="background:#fbbf24;" onclick="setColor('#fbbf24', this)"></div>
+        <div class="color-swatch" style="background:#f43f5e;" onclick="setColor('#f43f5e', this)"></div>
+      </div>
+
+      <button type="button" class="action-btn" onclick="clearCanvas()">Clear</button>
+      <button type="button" class="action-btn primary" onclick="sendToResearchLoom()">
+        <span>Transmit to PC</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+      </button>
     </div>
   </header>
+
   <canvas id="pad"></canvas>
+  <div id="toast">Transmitted to ResearchLoom</div>
+
   <script>
     const canvas = document.getElementById('pad');
     const ctx = canvas.getContext('2d');
+    const pressureStat = document.getElementById('pressure-stat');
+    const toast = document.getElementById('toast');
+
+    let currentMode = 'pen';
+    let currentColor = '#ffffff';
+    let baseLineWidth = 2.5;
+
     function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - 48;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.5;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = (window.innerHeight - 52) * dpr;
+      ctx.scale(dpr, dpr);
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
     }
     window.addEventListener('resize', resize);
     resize();
 
-    let drawing = false;
-    function getPos(e) {
-      if (e.touches && e.touches[0]) {
-        return { x: e.touches[0].clientX, y: e.touches[0].clientY - 48 };
-      }
-      return { x: e.clientX, y: e.clientY - 48 };
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
     }
 
-    function startDraw(e) { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
-    function draw(e) { if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }
-    function endDraw() { drawing = false; }
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('pen-btn').classList.toggle('active', mode === 'pen');
+      document.getElementById('eraser-btn').classList.toggle('active', mode === 'eraser');
+    }
 
-    canvas.addEventListener('touchstart', startDraw, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', endDraw);
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', endDraw);
+    function setColor(hex, el) {
+      currentColor = hex;
+      setMode('pen');
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+    }
 
-    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
-    async function sendToLitBuddy() {
+    function handlePointerDown(e) {
+      // Reject non-primary or palm contact if stylus is active
+      if (e.pointerType === 'pen') {
+        pressureStat.textContent = 'Stylus Active (' + Math.round((e.pressure || 0.5) * 100) + '%)';
+      }
+      isDrawing = true;
+      lastX = e.clientX;
+      lastY = e.clientY - 52;
+    }
+
+    function handlePointerMove(e) {
+      if (!isDrawing) return;
+      const x = e.clientX;
+      const y = e.clientY - 52;
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+
+      if (currentMode === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = 26;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = currentColor;
+        // Natural pressure dynamics for Apple Pencil & S-Pen
+        const pressure = (e.pressure !== undefined && e.pressure > 0) ? e.pressure : 0.5;
+        ctx.lineWidth = baseLineWidth * (0.4 + pressure * 1.6);
+        if (e.pointerType === 'pen') {
+          pressureStat.textContent = 'Stylus Pressure: ' + Math.round(pressure * 100) + '%';
+        }
+      }
+
+      ctx.stroke();
+      lastX = x;
+      lastY = y;
+    }
+
+    function handlePointerUp(e) {
+      isDrawing = false;
+      if (e.pointerType === 'pen') {
+        pressureStat.textContent = 'Stylus Ready';
+      }
+    }
+
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointermove', handlePointerMove);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('pointercancel', handlePointerUp);
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      showToast('Canvas Cleared');
+    }
+
+    async function sendToResearchLoom() {
       const dataUrl = canvas.toDataURL('image/png');
       try {
         const resp = await fetch('/api/tablet/submit', {
@@ -109,9 +216,13 @@ TABLET_PAD_HTML = """<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image_data: dataUrl })
         });
-        if (resp.ok) alert('Drawing transmitted to LitBuddy successfully!');
-      } catch (e) {
-        alert('Network error sending drawing: ' + e);
+        if (resp.ok) {
+          showToast('Drawing transmitted to ResearchLoom on PC!');
+        } else {
+          showToast('Error transmitting drawing');
+        }
+      } catch (err) {
+        showToast('Connection error: ' + err);
       }
     }
   </script>

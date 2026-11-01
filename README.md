@@ -127,6 +127,14 @@ ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready deskt
   python backend/litbuddy_app.py
   ```
 
+### 3. Android Tablets (Samsung Galaxy Tab, Pixel Tablet, S-Pen & Active Stylus)
+- **Native Android APK**: Download `ResearchLoom-android-tablet.apk` from [Releases](https://github.com/sohamsans/researchloom/releases) to install directly on your Android tablet.
+- **Hardware Stylus Features**:
+  - Full hardware pressure dynamics (`0.0` - `1.0`) with Samsung S-Pen and universal USI styluses.
+  - Automatic palm rejection and multi-touch gesture rejection during pen contact.
+  - Interactive Flow Maps, Formula Scratchpads, and Academic Writing Studio optimized for landscape tablet screens.
+  - Local offline storage on tablet device.
+
 ### Note on Unsigned App Prompts
 Because ResearchLoom is a free open-source project without commercial corporate code-signing certificates:
 1. **Windows SmartScreen**: Click **More info** and select **Run anyway**.

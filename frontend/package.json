@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
     "@tanstack/react-table": "^8.20.5",
     "@types/marked": "^5.0.2",
     "clsx": "^2.1.1",
