@@ -96,6 +96,36 @@ async def init_db():
                         updated_at DATETIME
                     )
                 """))
+
+                # Ensure matrix_column_definitions exists
+                sync_conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS matrix_column_definitions (
+                        id VARCHAR(36) PRIMARY KEY,
+                        workspace_id VARCHAR(64) DEFAULT 'default_workspace',
+                        column_name VARCHAR(255) NOT NULL,
+                        prompt TEXT NOT NULL,
+                        data_type VARCHAR(50) DEFAULT 'string',
+                        created_at DATETIME
+                    )
+                """))
+
+                # Ensure matrix_cells exists
+                sync_conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS matrix_cells (
+                        id VARCHAR(36) PRIMARY KEY,
+                        workspace_id VARCHAR(64) DEFAULT 'default_workspace',
+                        paper_id VARCHAR(128) NOT NULL,
+                        column_id VARCHAR(36) NOT NULL,
+                        value TEXT NOT NULL,
+                        status VARCHAR(20) DEFAULT 'reported',
+                        confidence VARCHAR(20) DEFAULT 'high',
+                        source_sentence TEXT NULL,
+                        source_page INTEGER NULL,
+                        bounding_box_json TEXT NULL,
+                        is_human_edited BOOLEAN DEFAULT 0,
+                        updated_at DATETIME
+                    )
+                """))
             except Exception as e:
                 print(f"[DB Auto-Migration Warning] {e}")
 

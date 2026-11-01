@@ -20,6 +20,7 @@ import { DownloadManagerView } from './components/DownloadManagerView';
 import { WritingStudio } from './components/writer/WritingStudio';
 import { FlowMapCanvas } from './components/flowmap/FlowMapCanvas';
 import { DataSheetStudio } from './components/DataSheetStudio';
+import { EvidenceMatrixStudio } from './components/matrix/EvidenceMatrixStudio';
 import { SkillSynthesizerModal } from './components/SkillSynthesizerModal';
 import { TabletBridgeModal } from './components/TabletBridgeModal';
 import { PdfViewerModal } from './components/PdfViewerModal';
@@ -50,7 +51,7 @@ const MainLayout: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [stage, setStage] = useState<PipelineStage>('idle');
   const [viewMode, setViewMode] = useState<'matrix' | 'chat'>('matrix');
-  const [mainTab, setMainTab] = useState<'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'formulas' | 'stats'>('research');
+  const [mainTab, setMainTab] = useState<'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'matrix' | 'formulas' | 'stats'>('research');
 
   // Modals
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
@@ -60,6 +61,8 @@ const MainLayout: React.FC = () => {
   // PDF Viewer Modal
   const [viewerVaultId, setViewerVaultId] = useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = useState('');
+  const [viewerPage, setViewerPage] = useState<number | null>(null);
+  const [viewerSentence, setViewerSentence] = useState<string | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   // Onboarding Tutorial Tour
@@ -708,6 +711,20 @@ const MainLayout: React.FC = () => {
           <StatisticsStudio />
         </div>
 
+        <div className={mainTab === 'matrix' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+          <EvidenceMatrixStudio
+            papers={reviewResults ? reviewResults.papers : []}
+            candidatePapers={discoveredPapers}
+            onOpenPdfWithHighlight={(paperId, title, page, sentence) => {
+              setViewerVaultId(paperId);
+              setViewerTitle(title);
+              setViewerPage(page || null);
+              setViewerSentence(sentence || null);
+              setIsViewerOpen(true);
+            }}
+          />
+        </div>
+
         <div className={mainTab === 'sheets' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
           <DataSheetStudio />
         </div>
@@ -940,9 +957,13 @@ const MainLayout: React.FC = () => {
         isOpen={isViewerOpen}
         vaultId={viewerVaultId}
         title={viewerTitle}
+        targetPage={viewerPage}
+        highlightSentence={viewerSentence}
         onClose={() => {
           setIsViewerOpen(false);
           setViewerVaultId(null);
+          setViewerPage(null);
+          setViewerSentence(null);
         }}
       />
 

@@ -292,3 +292,59 @@ class ManuscriptListResponse(BaseModel):
     items: List[ManuscriptResponse]
     total: int
 
+# ----------------- Evidence Extraction Matrix Schemas -----------------
+
+class MatrixColumnCreateRequest(BaseModel):
+    workspace_id: str = "default_workspace"
+    column_name: str
+    prompt: str
+    data_type: str = "string" # string, integer, float, list
+
+class MatrixColumnResponse(BaseModel):
+    id: str
+    workspace_id: str
+    column_name: str
+    prompt: str
+    data_type: str
+    created_at: str
+
+class MatrixCellExtractRequest(BaseModel):
+    workspace_id: str = "default_workspace"
+    paper_id: str
+    paper_title: str
+    paper_doi: Optional[str] = None
+    column_id: str
+    column_name: str
+    prompt: str
+    data_type: str = "string"
+    model_provider: Optional[str] = "groq"
+    model_name: Optional[str] = None
+    groq_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+
+class MatrixCellUpdateRequest(BaseModel):
+    value: str
+    status: Optional[str] = "reported"
+    confidence: Optional[str] = "high"
+    source_sentence: Optional[str] = None
+    source_page: Optional[int] = None
+    bounding_box: Optional[List[float]] = None
+
+class MatrixCellResponse(BaseModel):
+    id: str
+    workspace_id: str
+    paper_id: str
+    column_id: str
+    value: str
+    status: str # reported, not_reported, inferred
+    confidence: str # high, low, not_mentioned
+    source_sentence: Optional[str] = None
+    source_page: Optional[int] = None
+    bounding_box: Optional[List[float]] = None
+    is_human_edited: bool = False
+    updated_at: str
+
+class MatrixFullDataResponse(BaseModel):
+    columns: List[MatrixColumnResponse]
+    cells: List[MatrixCellResponse]
+

@@ -26,11 +26,13 @@ import { HealthStatus } from '../types';
 import { MusicFocusBar } from './music/MusicFocusBar';
 import { ModelSwitcherPill } from './ModelSwitcherPill';
 
+import { MainTabType } from './Sidebar';
+
 interface HeaderProps {
   health: HealthStatus | null;
   onOpenAssistant: () => void;
-  activeTab?: 'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'formulas' | 'stats';
-  onTabChange?: (tab: 'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'formulas' | 'stats') => void;
+  activeTab?: MainTabType;
+  onTabChange?: (tab: MainTabType) => void;
   onOpenTutorial?: () => void;
   onOpenSkills?: () => void;
   onOpenTabletBridge?: () => void;

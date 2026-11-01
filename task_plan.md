@@ -1,10 +1,29 @@
-# Task Plan: Guided Research Objective Alignment
+# Task Plan: Research Loom Production Implementation
 
-- [x] Phase 1: Backend Contract & Data Models (`backend/app/models/schemas.py`) <!-- id: 0 -->
-- [x] Phase 2: LLM Service Updates for Objective-Grounded Triage & Extraction (`backend/app/services/llm_provider.py` & `pipeline.py`) <!-- id: 1 -->
-- [x] Phase 3: Integration Test for Objective-Filtered Synthesis (`backend/tests/test_objective_synthesis.py`) <!-- id: 2 -->
-- [x] Phase 4: Frontend Types & API Client (`frontend/src/types/index.ts`, `frontend/src/services/api.ts`) <!-- id: 3 -->
-- [x] Phase 5: Synthesis Objective Modal Component (`frontend/src/components/SynthesisObjectiveModal.tsx`) <!-- id: 4 -->
-- [x] Phase 6: Wire Modal into `CandidatePreviewTable.tsx` & `App.tsx` <!-- id: 5 -->
-- [x] Phase 7: Verification (Frontend build, end-to-end test run) <!-- id: 6 -->
-- [x] Phase 8: Documentation & Git Commit (`CHANGELOG.md`, `PROJECT_MEMORY.md`) <!-- id: 7 -->
+- [ ] Phase 1: Automated Evidence Extraction Matrix & Click-to-Source Verification <!-- id: 0 -->
+  - [ ] 1.1 Backend Models & Schema (`backend/app/models/matrix.py`, `backend/app/models/schemas.py`) <!-- id: 1 -->
+  - [ ] 1.2 Layout-Aware Table Extraction & Extraction Service (`backend/app/services/matrix_service.py`) <!-- id: 2 -->
+  - [ ] 1.3 FastAPI REST Endpoints for Dynamic Matrix (`backend/app/routers/matrix.py`) <!-- id: 3 -->
+  - [ ] 1.4 Frontend Dynamic Column Builder & Matrix UI (`frontend/src/components/matrix/EvidenceMatrixStudio.tsx`) <!-- id: 4 -->
+  - [ ] 1.5 Click-to-Source PDF Bounding Box Viewer Integration (`frontend/src/components/PdfViewerModal.tsx`) <!-- id: 5 -->
+  - [ ] 1.6 Verification & Matrix Test Suite <!-- id: 6 -->
+
+- [ ] Phase 2: Systematic Screening & PRISMA 2020 Workflow <!-- id: 7 -->
+  - [ ] 2.1 Screening Audit Database & Endpoints (`backend/app/routers/screening.py`) <!-- id: 8 -->
+  - [ ] 2.2 Keyboard Hotkey Triage Interface (`J`/`K`/`L`) & Exclusion Taxonomy <!-- id: 9 -->
+  - [ ] 2.3 Interactive Vector PRISMA 2020 Flowchart (`PRISMAFlowDiagram.tsx`) <!-- id: 10 -->
+
+- [ ] Phase 3: The "Loom" Citation & Lineage Graph (Miro Canvas Extension) <!-- id: 11 -->
+  - [ ] 3.1 Open Scholarly Graph Seed Expansion & Edge Classification <!-- id: 12 -->
+  - [ ] 3.2 Chronological Swimlane Timeline View & Viewport Frustum Culling <!-- id: 13 -->
+  - [ ] 3.3 Semantic Research Frames & Lasso Multi-Select <!-- id: 14 -->
+
+- [ ] Phase 4: Grounded Literature Review Writer & Academic Editor <!-- id: 15 -->
+  - [ ] 4.1 Inline `@` Citation Autocomplete & Reactive Key Sync <!-- id: 16 -->
+  - [ ] 4.2 Sentence-Level Grounded Synthesis Assistant <!-- id: 17 -->
+  - [ ] 4.3 Unverified Claim Diff Flagging Engine (Green/Amber/Red) <!-- id: 18 -->
+
+- [ ] Phase 5: Ingestion, Zotero Sync, Packaging & Final Release <!-- id: 19 -->
+  - [ ] 5.1 Zotero Web API & Drag-and-Drop BibTeX/RIS Parser <!-- id: 20 -->
+  - [ ] 5.2 Build & Test Verification (`tsc && vite build`, `LitBuddy.exe`) <!-- id: 21 -->
+  - [ ] 5.3 Documentation, Release Notes & Git Commit <!-- id: 22 -->

@@ -15,7 +15,10 @@ import {
   ManuscriptItem,
   ManuscriptSaveRequest,
   ManuscriptResponse,
-  ManuscriptListResponse
+  ManuscriptListResponse,
+  MatrixColumnDefinition,
+  MatrixCellData,
+  MatrixFullDataResponse
 } from '../types';
 
 const API_BASE = '/api';
@@ -538,6 +541,100 @@ export async function deleteManuscript(id: string): Promise<{ success: boolean; 
     throw new Error(`Failed to delete manuscript (${response.status})`);
   }
   return response.json();
+}
+
+// ----------------- Evidence Extraction Matrix API -----------------
+
+export async function fetchWorkspaceMatrix(workspaceId: string = 'default_workspace'): Promise<MatrixFullDataResponse> {
+  const resp = await fetch(`${API_BASE}/matrix/workspace/${workspaceId}`, {
+    headers: { ...getAuthHeader() }
+  });
+  if (!resp.ok) throw new Error('Failed to fetch workspace matrix data');
+  return resp.json();
+}
+
+export async function createMatrixColumn(
+  columnName: string,
+  prompt: string,
+  dataType: string = 'string',
+  workspaceId: string = 'default_workspace'
+): Promise<MatrixColumnDefinition> {
+  const resp = await fetch(`${API_BASE}/matrix/columns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify({
+      workspace_id: workspaceId,
+      column_name: columnName,
+      prompt,
+      data_type: dataType
+    })
+  });
+  if (!resp.ok) throw new Error('Failed to create matrix column');
+  return resp.json();
+}
+
+export async function deleteMatrixColumn(columnId: string): Promise<{ status: string; id: string }> {
+  const resp = await fetch(`${API_BASE}/matrix/columns/${columnId}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeader() }
+  });
+  if (!resp.ok) throw new Error('Failed to delete matrix column');
+  return resp.json();
+}
+
+export async function extractMatrixCell(params: {
+  workspaceId?: string;
+  paperId: string;
+  paperTitle: string;
+  paperDoi?: string;
+  columnId: string;
+  columnName: string;
+  prompt: string;
+  dataType?: string;
+  modelProvider?: string;
+  modelName?: string;
+  groqApiKey?: string;
+  geminiApiKey?: string;
+}): Promise<MatrixCellData> {
+  const resp = await fetch(`${API_BASE}/matrix/extract-cell`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify({
+      workspace_id: params.workspaceId || 'default_workspace',
+      paper_id: params.paperId,
+      paper_title: params.paperTitle,
+      paper_doi: params.paperDoi,
+      column_id: params.columnId,
+      column_name: params.columnName,
+      prompt: params.prompt,
+      data_type: params.dataType || 'string',
+      model_provider: params.modelProvider,
+      model_name: params.modelName,
+      groq_api_key: params.groqApiKey,
+      gemini_api_key: params.geminiApiKey
+    })
+  });
+  if (!resp.ok) throw new Error('Failed to extract matrix cell');
+  return resp.json();
+}
+
+export async function updateMatrixCellManually(
+  cellId: string,
+  update: {
+    value: string;
+    status?: string;
+    confidence?: string;
+    source_sentence?: string;
+    source_page?: number;
+  }
+): Promise<MatrixCellData> {
+  const resp = await fetch(`${API_BASE}/matrix/cells/${cellId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(update)
+  });
+  if (!resp.ok) throw new Error('Failed to update matrix cell');
+  return resp.json();
 }
 
 export const api = {

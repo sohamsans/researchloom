@@ -282,3 +282,34 @@ export interface ManuscriptListResponse {
   total: number;
 }
 
+// ----------------- Evidence Extraction Matrix Types -----------------
+
+export interface MatrixColumnDefinition {
+  id: string;
+  workspace_id: string;
+  column_name: string;
+  prompt: string;
+  data_type: 'string' | 'integer' | 'float' | 'list';
+  created_at?: string;
+}
+
+export interface MatrixCellData {
+  id: string;
+  workspace_id: string;
+  paper_id: string;
+  column_id: string;
+  value: string;
+  status: 'reported' | 'not_reported' | 'inferred';
+  confidence: 'high' | 'low' | 'not_mentioned';
+  source_sentence?: string | null;
+  source_page?: number | null;
+  bounding_box?: number[] | null;
+  is_human_edited: boolean;
+  updated_at: string;
+}
+
+export interface MatrixFullDataResponse {
+  columns: MatrixColumnDefinition[];
+  cells: MatrixCellData[];
+}
+

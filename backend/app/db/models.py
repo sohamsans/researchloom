@@ -134,3 +134,31 @@ class FlowCanvas(Base):
     created_at = Column(DateTime, default=get_utc_now)
     updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
 
+class MatrixColumnDefinition(Base):
+    """User-defined extraction columns with natural language prompt."""
+    __tablename__ = "matrix_column_definitions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id = Column(String(64), index=True, default="default_workspace")
+    column_name = Column(String(255), nullable=False)
+    prompt = Column(Text, nullable=False)
+    data_type = Column(String(50), default="string") # string, integer, float, list
+    created_at = Column(DateTime, default=get_utc_now)
+
+class MatrixCell(Base):
+    """Extracted or edited matrix cell with confidence, provenance, and source coordinates."""
+    __tablename__ = "matrix_cells"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id = Column(String(64), index=True, default="default_workspace")
+    paper_id = Column(String(128), index=True, nullable=False)
+    column_id = Column(String(36), index=True, nullable=False)
+    value = Column(Text, nullable=False)
+    status = Column(String(20), default="reported") # reported, not_reported, inferred
+    confidence = Column(String(20), default="high") # high, low, not_mentioned
+    source_sentence = Column(Text, nullable=True)
+    source_page = Column(Integer, nullable=True)
+    bounding_box_json = Column(Text, nullable=True) # [x0, y0, x1, y1]
+    is_human_edited = Column(Boolean, default=False)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
+
