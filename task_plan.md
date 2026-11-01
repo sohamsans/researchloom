@@ -18,12 +18,12 @@
   - [x] 3.2 Chronological Swimlane Timeline View & Viewport Frustum Culling <!-- id: 13 -->
   - [x] 3.3 Semantic Research Frames & Lasso Multi-Select <!-- id: 14 -->
 
-- [ ] Phase 4: Grounded Literature Review Writer & Academic Editor <!-- id: 15 -->
-  - [ ] 4.1 Inline `@` Citation Autocomplete & Reactive Key Sync <!-- id: 16 -->
-  - [ ] 4.2 Sentence-Level Grounded Synthesis Assistant <!-- id: 17 -->
-  - [ ] 4.3 Unverified Claim Diff Flagging Engine (Green/Amber/Red) <!-- id: 18 -->
+- [x] Phase 4: Grounded Literature Review Writer & Academic Editor <!-- id: 15 -->
+  - [x] 4.1 Inline `@` Citation Autocomplete & Reactive Key Sync <!-- id: 16 -->
+  - [x] 4.2 Sentence-Level Grounded Synthesis Assistant <!-- id: 17 -->
+  - [x] 4.3 Unverified Claim Diff Flagging Engine (Green/Amber/Red) <!-- id: 18 -->
 
-- [ ] Phase 5: Ingestion, Zotero Sync, Packaging & Final Release <!-- id: 19 -->
-  - [ ] 5.1 Zotero Web API & Drag-and-Drop BibTeX/RIS Parser <!-- id: 20 -->
-  - [ ] 5.2 Build & Test Verification (`tsc && vite build`, `LitBuddy.exe`) <!-- id: 21 -->
-  - [ ] 5.3 Documentation, Release Notes & Git Commit <!-- id: 22 -->
+- [x] Phase 5: Ingestion, Zotero Sync, Packaging & Final Release <!-- id: 19 -->
+  - [x] 5.1 Zotero Web API & Drag-and-Drop BibTeX/RIS Parser <!-- id: 20 -->
+  - [x] 5.2 Build & Test Verification (`tsc && vite build`, `LitBuddy.exe`) <!-- id: 21 -->
+  - [x] 5.3 Documentation, Release Notes & Git Commit <!-- id: 22 -->
