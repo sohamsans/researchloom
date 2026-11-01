@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="silver-grad" x1="16" y1="16" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="60%" stop-color="#E2E8F0"/>
+      <stop offset="100%" stop-color="#94A3B8"/>
+    </linearGradient>
+    <linearGradient id="spine-grad" x1="32" y1="20" x2="32" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Deep Obsidian Matte Rounded Background -->
+  <rect width="64" height="64" rx="14" fill="#0C0D10"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.25" stroke="#23262D" stroke-width="1.5"/>
+
+  <!-- Architectural Background Folio Pages (Subtle Slate Shadow) -->
+  <path d="M13 21L32 27.5L51 21V43.5L32 50L13 43.5V21Z" stroke="#334155" stroke-width="2" stroke-linejoin="round" fill="#13161C"/>
+
+  <!-- Core Architectural Book / Folio Wings -->
+  <path d="M17 18L32 24.5L47 18V41L32 47.5L17 41V18Z" stroke="url(#silver-grad)" stroke-width="2.5" stroke-linejoin="round" fill="#181B22"/>
+
+  <!-- Central Spine Fold -->
+  <path d="M32 24.5V47.5" stroke="url(#silver-grad)" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Minimalist Geometric Monogram: Left Page 'L' -->
+  <path d="M22 23V36.5H29" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Minimalist Geometric Monogram: Right Page 'B' Architectural Diagonal -->
+  <path d="M35 24.5L43 32L35 39.5" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M35 32H41.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { LitBuddyLogo } from './LitBuddyLogo';
 import { ResearchContextExporter } from './ResearchContextExporter';
 import { ModelSwitcherPill } from './ModelSwitcherPill';
+import { useNativeDialog } from '../context/NativeDialogContext';
 
 interface PaperChatAreaProps {
   topic: string;
@@ -102,6 +103,7 @@ export const PaperChatArea: React.FC<PaperChatAreaProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { showConfirm, showToast } = useNativeDialog();
   const { activeProvider, activeModel, runtimeKeys, token, isAuthenticated } = useAuth();
 
   const scrollToBottom = () => {
@@ -233,8 +235,12 @@ export const PaperChatArea: React.FC<PaperChatAreaProps> = ({
     }
   };
 
-  const handleClearChat = () => {
-    if (window.confirm(`Are you sure you want to clear this conversation? Your synthesized literature review and vault documents will remain saved.`)) {
+  const handleClearChat = async () => {
+    const confirmed = await showConfirm(
+      'Are you sure you want to clear this conversation? Your synthesized literature review and vault documents will remain saved.',
+      'Clear Conversation'
+    );
+    if (confirmed) {
       const resetMsg: ChatMessage = {
         id: `init-${Date.now()}`,
         role: 'assistant',
@@ -250,6 +256,7 @@ export const PaperChatArea: React.FC<PaperChatAreaProps> = ({
       try {
         localStorage.removeItem(storageKey);
       } catch {}
+      showToast('Conversation cleared', 'info');
     }
   };
 

@@ -276,7 +276,7 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
   if (!isOpen) return null;
 
   return (
-    <aside className="w-80 md:w-96 flex-shrink-0 h-[calc(100vh-3.5rem)] bg-[#1e1f20] border-l border-[#3c4043] flex flex-col z-20 transition-all duration-300">
+    <aside className="fixed top-14 right-0 w-80 md:w-96 flex-shrink-0 h-[calc(100vh-3.5rem)] bg-[#1e1f20] border-l border-[#3c4043] flex flex-col z-30 transition-all duration-300 shadow-2xl">
       {/* Sidebar Header */}
       <div className="p-3.5 border-b border-[#3c4043] flex items-center justify-between">
         <div className="flex items-center gap-2">

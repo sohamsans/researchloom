@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { History, RotateCcw, X, Clock, Check, Trash2, Camera, ShieldCheck } from 'lucide-react';
+import { useNativeDialog } from '../context/NativeDialogContext';
 
 export interface RestoreSnapshot {
   id: string;
@@ -27,6 +28,7 @@ export const RollbackHistoryModal: React.FC<RollbackHistoryModalProps> = ({
   onRollback,
   onTakeManualSnapshot
 }) => {
+  const { showConfirm, showToast } = useNativeDialog();
   const [snapshots, setSnapshots] = useState<RestoreSnapshot[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -58,10 +60,12 @@ export const RollbackHistoryModal: React.FC<RollbackHistoryModalProps> = ({
     }
   };
 
-  const handleClearHistory = () => {
-    if (confirm('Clear all historical restore points?')) {
+  const handleClearHistory = async () => {
+    const confirmed = await showConfirm('Clear all historical restore points?', 'Clear History');
+    if (confirmed) {
       localStorage.removeItem('litbuddy_restore_snapshots');
       setSnapshots([]);
+      showToast('All restore snapshots cleared', 'info');
     }
   };
 

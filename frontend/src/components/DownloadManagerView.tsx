@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useNativeDialog } from '../context/NativeDialogContext';
 
 interface DownloadItem {
   vault_id: string;
@@ -35,6 +36,7 @@ interface DownloadManagerViewProps {
 }
 
 export const DownloadManagerView: React.FC<DownloadManagerViewProps> = ({ onOpenPdf }) => {
+  const { showAlert, showConfirm, showToast } = useNativeDialog();
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [totalFiles, setTotalFiles] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
@@ -74,15 +76,15 @@ export const DownloadManagerView: React.FC<DownloadManagerViewProps> = ({ onOpen
   };
 
   const handleDelete = async (vaultId: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}" from the local vault?`)) return;
+    const confirmed = await showConfirm(`Are you sure you want to delete "${title}" from the local vault?`, 'Delete Vault File');
+    if (!confirmed) return;
     try {
       await api.deleteVaultedFile(vaultId);
       setDownloads((prev) => prev.filter((d) => d.vault_id !== vaultId));
       setTotalFiles((prev) => Math.max(0, prev - 1));
-      setActionNotice(`Deleted "${title.slice(0, 40)}..." from vault.`);
-      setTimeout(() => setActionNotice(null), 3000);
+      showToast(`Deleted "${title.slice(0, 40)}..." from vault`, 'info');
     } catch (e: any) {
-      alert(`Delete failed: ${e.message}`);
+      showAlert(`Delete failed: ${e.message}`, 'Delete Error', 'error');
     }
   };
 
@@ -96,26 +98,21 @@ export const DownloadManagerView: React.FC<DownloadManagerViewProps> = ({ onOpen
       year: null
     }));
     try {
-      setActionNotice('Creating bulk ZIP archive...');
       await api.bulkDownloadPapers(papers);
-      setActionNotice('ZIP archive generated and downloaded!');
-      setTimeout(() => setActionNotice(null), 3000);
+      showToast('Vault papers packaged into ZIP archive', 'success');
     } catch (e: any) {
-      alert(`Bulk ZIP failed: ${e.message}`);
+      showAlert(`Bulk ZIP failed: ${e.message}`, 'Archive Error', 'error');
     }
   };
 
   const handleSyncVault = async () => {
     try {
-      setActionNotice('Scanning disk for unregistered PDFs...');
       const result = await api.syncVaultDisk();
-      setActionNotice(result.message);
-      setTimeout(() => setActionNotice(null), 5000);
+      showToast(result.message, 'success');
       // Refresh the list to show newly synced files
       await fetchDownloads();
     } catch (e: any) {
-      alert(`Vault sync failed: ${e.message}`);
-      setActionNotice(null);
+      showAlert(`Vault sync failed: ${e.message}`, 'Sync Error', 'error');
     }
   };
 

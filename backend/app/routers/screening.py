@@ -11,7 +11,7 @@ from app.models.schemas import (
     PRISMAStatsResponse
 )
 
-router = APIRouter(prefix="/screening", tags=["PRISMA Screening"])
+router = APIRouter(prefix="/api/screening", tags=["PRISMA Screening"])
 
 @router.post("/decision", response_model=ScreeningAuditItemResponse)
 async def log_screening_decision(req: ScreeningDecisionRequest, db: AsyncSession = Depends(get_db)):

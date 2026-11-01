@@ -275,26 +275,29 @@ def main():
             if sys.platform != "win32":
                 return
             import ctypes
-            for _ in range(40):
-                try:
-                    hwnd = ctypes.windll.user32.FindWindowW(None, "LitBuddy")
-                    if hwnd:
-                        val = ctypes.c_int(1)
-                        # DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win11/Win10 20H1+, 19 on older Win10)
-                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
-                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
-                        # DWMWA_CAPTION_COLOR (35) -> #131314 BGR: 0x00141313
-                        caption_color = ctypes.c_int(0x00141313)
-                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(caption_color), ctypes.sizeof(caption_color))
-                        # DWMWA_TEXT_COLOR (36) -> #e3e3e3
-                        text_color = ctypes.c_int(0x00E3E3E3)
-                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
-                        break
-                except Exception:
-                    pass
-                time.sleep(0.25)
+            try:
+                # Direct IntPtr extraction from pywebview WinForms native form
+                if window.native and hasattr(window.native, "Handle"):
+                    hwnd = int(window.native.Handle.ToInt64())
+                else:
+                    hwnd = ctypes.windll.user32.FindWindowW(None, "ResearchLoom (Samhita)")
+                    if not hwnd:
+                        hwnd = ctypes.windll.user32.FindWindowW(None, "LitBuddy")
+                if hwnd:
+                    val = ctypes.c_int(1)
+                    # DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win11/Win10 20H1+, 19 on older Win10)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
+                    # DWMWA_CAPTION_COLOR (35) -> #121316 BGR: 0x00161312
+                    caption_color = ctypes.c_int(0x00161312)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(caption_color), ctypes.sizeof(caption_color))
+                    # DWMWA_TEXT_COLOR (36) -> #e3e3e3 BGR: 0x00E3E3E3
+                    text_color = ctypes.c_int(0x00E3E3E3)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
+            except Exception as e:
+                print(f"[Titlebar Styling] {e}")
 
-        threading.Thread(target=_apply_windows_dark_titlebar, daemon=True).start()
+        window.events.shown += _apply_windows_dark_titlebar
 
         # pywebview start — blocks until user closes window
         webview.start(

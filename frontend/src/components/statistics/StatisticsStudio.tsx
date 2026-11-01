@@ -19,10 +19,12 @@ import {
   Sliders
 } from 'lucide-react';
 import katex from 'katex';
+import { useNativeDialog } from '../../context/NativeDialogContext';
 
 type AnalysisTab = 't-test' | 'anova' | 'smoothing' | 'regression';
 
 export const StatisticsStudio: React.FC = () => {
+  const { showAlert, showToast } = useNativeDialog();
   const [activeTab, setActiveTab] = useState<AnalysisTab>('t-test');
   const [copiedTikz, setCopiedTikz] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
@@ -66,7 +68,7 @@ export const StatisticsStudio: React.FC = () => {
     const a = parseNumbers(groupAInput);
     const b = parseNumbers(groupBInput);
     if (a.length < 2 || b.length < 2) {
-      alert('Each group must have at least 2 numbers.');
+      showAlert('Each group must have at least 2 numbers.', 'Input Validation', 'warning');
       return;
     }
     setIsLoading(true);
@@ -83,12 +85,13 @@ export const StatisticsStudio: React.FC = () => {
       });
       if (resp.ok) {
         setTTestResult(await resp.json());
+        showToast('t-Test computation complete', 'success');
       } else {
         const err = await resp.json();
-        alert(`t-Test calculation error: ${err.detail || 'Failed'}`);
+        showAlert(`t-Test calculation error: ${err.detail || 'Failed'}`, 'Calculation Error', 'error');
       }
     } catch (e: any) {
-      alert(`Network error: ${e.message}`);
+      showAlert(`Network error: ${e.message}`, 'Network Error', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +106,7 @@ export const StatisticsStudio: React.FC = () => {
     });
 
     if (Object.keys(groupsPayload).length < 2) {
-      alert('ANOVA requires at least 2 valid groups with >= 2 numbers each.');
+      showAlert('ANOVA requires at least 2 valid groups with >= 2 numbers each.', 'Input Validation', 'warning');
       return;
     }
 
@@ -116,12 +119,13 @@ export const StatisticsStudio: React.FC = () => {
       });
       if (resp.ok) {
         setAnovaResult(await resp.json());
+        showToast('ANOVA computation complete', 'success');
       } else {
         const err = await resp.json();
-        alert(`ANOVA calculation error: ${err.detail || 'Failed'}`);
+        showAlert(`ANOVA calculation error: ${err.detail || 'Failed'}`, 'Calculation Error', 'error');
       }
     } catch (e: any) {
-      alert(`Network error: ${e.message}`);
+      showAlert(`Network error: ${e.message}`, 'Network Error', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +136,7 @@ export const StatisticsStudio: React.FC = () => {
     const x = parseNumbers(rawXInput);
     const y = parseNumbers(rawYInput);
     if (x.length !== y.length || x.length < 4) {
-      alert('X and Y arrays must have identical length and at least 4 points.');
+      showAlert('X and Y arrays must have identical length and at least 4 points.', 'Input Validation', 'warning');
       return;
     }
     setIsLoading(true);
@@ -150,9 +154,10 @@ export const StatisticsStudio: React.FC = () => {
       });
       if (resp.ok) {
         setSmoothResult(await resp.json());
+        showToast('Curve smoothing complete', 'success');
       }
     } catch (e: any) {
-      alert(`Smoothing error: ${e.message}`);
+      showAlert(`Smoothing error: ${e.message}`, 'Calculation Error', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +168,7 @@ export const StatisticsStudio: React.FC = () => {
     const x = parseNumbers(rawXInput);
     const y = parseNumbers(rawYInput);
     if (x.length !== y.length || x.length < 3) {
-      alert('X and Y arrays must have identical length and at least 3 points.');
+      showAlert('X and Y arrays must have identical length and at least 3 points.', 'Input Validation', 'warning');
       return;
     }
     setIsLoading(true);
@@ -179,9 +184,10 @@ export const StatisticsStudio: React.FC = () => {
       });
       if (resp.ok) {
         setRegressionResult(await resp.json());
+        showToast('Regression model fitted successfully', 'success');
       }
     } catch (e: any) {
-      alert(`Regression error: ${e.message}`);
+      showAlert(`Regression error: ${e.message}`, 'Fitting Error', 'error');
     } finally {
       setIsLoading(false);
     }

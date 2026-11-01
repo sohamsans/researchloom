@@ -44,8 +44,10 @@ import {
   SavedSearchItem
 } from './types';
 import { AlertCircle, BookOpen, MessageSquare, Table } from 'lucide-react';
+import { useNativeDialog } from './context/NativeDialogContext';
 
 const MainLayout: React.FC = () => {
+  const { showAlert, showConfirm, showToast } = useNativeDialog();
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSourcesSidebarOpen, setIsSourcesSidebarOpen] = useState(false);
@@ -252,9 +254,9 @@ const MainLayout: React.FC = () => {
       if (snapshot.data.dataSheets) {
         localStorage.setItem('litbuddy_datasheet_active_project', JSON.stringify(snapshot.data.dataSheets));
       }
-      alert(`Successfully restored snapshot from ${new Date(snapshot.timestamp).toLocaleTimeString()}`);
+      showToast(`Restored snapshot from ${new Date(snapshot.timestamp).toLocaleTimeString()}`, 'success');
     } catch (err: any) {
-      alert(`Rollback failed: ${err.message}`);
+      showAlert(`Rollback failed: ${err.message}`, 'Restore Error', 'error');
     }
   };
 
@@ -520,8 +522,9 @@ const MainLayout: React.FC = () => {
         venue: (p as any).venue,
       }));
       await bulkDownloadPapers(items);
+      showToast('Bulk ZIP archive generated and downloaded', 'success');
     } catch (err: any) {
-      alert(err.message || 'Failed to generate bulk ZIP archive');
+      showAlert(err.message || 'Failed to generate bulk ZIP archive', 'Download Error', 'error');
     }
   };
 
@@ -547,11 +550,16 @@ const MainLayout: React.FC = () => {
     setQueryHistory(updated);
   };
 
-  const handleClearPool = () => {
-    if (window.confirm('Reset current candidate pool?')) {
+  const handleClearPool = async () => {
+    const confirmed = await showConfirm(
+      'Are you sure you want to reset the current candidate paper pool? This will clear all discovered papers from the active screening list.',
+      'Reset Paper Pool'
+    );
+    if (confirmed) {
       setDiscoveredPapers([]);
       setSelectedPaperIds(new Set());
       setQueryHistory([]);
+      showToast('Candidate paper pool reset', 'info');
     }
   };
 
@@ -621,7 +629,7 @@ const MainLayout: React.FC = () => {
       <div
         className={`flex-1 flex flex-col transition-all duration-300 min-w-0 ${
           isSidebarOpen ? 'ml-64' : 'ml-16'
-        }`}
+        } ${isSourcesSidebarOpen ? 'mr-80 md:mr-96' : ''}`}
       >
         <Header
           health={health}

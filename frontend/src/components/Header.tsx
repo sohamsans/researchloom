@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right Controls: Focus Music Dock, Tablet, Skills, Tutorial, BYOK, User */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <MusicFocusBar />
 
         {/* Wireless Tablet Stylus Button (On hold as requested by user; preserved for future activation) */}
@@ -104,22 +104,22 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenSkills}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
+            className="hidden 2xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
             title="AI Skills & Autonomous Workflows"
           >
             <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="hidden xl:inline">AI Skills</span>
+            <span>AI Skills</span>
           </button>
         )}
         {onOpenTutorial && (
           <button
             type="button"
             onClick={onOpenTutorial}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
+            className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
             title="Interactive Walkthrough & Tutorials"
           >
             <HelpCircle className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="hidden sm:inline">Tutorial</span>
+            <span>Tutorial</span>
           </button>
         )}
 
@@ -132,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Continuous Autosave & Snapshot Rollback (Click to restore past work)"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[11px] font-mono text-zinc-400">Autosaved</span>
+            <span className="text-[11px] font-mono text-zinc-400 hidden md:inline">Autosaved</span>
             <History className="w-3.5 h-3.5 text-zinc-400" />
           </button>
         )}
@@ -142,11 +142,11 @@ export const Header: React.FC<HeaderProps> = ({
           href="https://github.com/sohamsans/researchloom/issues"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
+          className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
           title="GitHub Repo & Issue Tracker — Report bugs with screenshots!"
         >
           <Github className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="hidden lg:inline">Report Issue</span>
+          <span className="hidden xl:inline">Report Issue</span>
           <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
             Beta
           </span>
@@ -159,10 +159,11 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={openKeyModal}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-200 shadow-xs transition-all cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-200 shadow-xs transition-all cursor-pointer"
         >
           <Key className="w-3.5 h-3.5 text-zinc-400" />
-          <span>BYOK Keys</span>
+          <span className="hidden sm:inline">BYOK Keys</span>
+          <span className="sm:hidden">Keys</span>
           {hasConfiguredKeys && (
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Keys encrypted" />
           )}
@@ -172,13 +173,13 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={openAuthModal}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 transition-all text-xs"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 transition-all text-xs"
           title={`Researcher: ${offlineProfile?.name || 'Local'} (@${offlineProfile?.username || 'researcher'})`}
         >
           <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-500 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
             {(offlineProfile?.name || 'R').charAt(0).toUpperCase()}
           </div>
-          <span className="hidden md:inline font-mono text-zinc-300 text-[11px]">
+          <span className="hidden lg:inline font-mono text-zinc-300 text-[11px]">
             @{offlineProfile?.username || 'researcher'}
           </span>
         </button>

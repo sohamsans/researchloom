@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.3.1] - 2026-11-01
+
+### Fixed
+- **Screening & Review Matrix API Router Normalization**:
+  - Resolved `HTTP 405 Method Not Allowed` on `/api/screening/decision` and `HTTP 404 Not Found` on `/api/matrix/workspace` caused by inconsistent route prefixing (`/screening` and `/matrix` vs `/api/screening` and `/api/matrix`).
+  - Added full test coverage verifying live endpoint status returns `200 OK`.
+- **Systematic Screening Decisions & Audit Log**:
+  - Fixed database schema integration for `screening_audit_log` so include, exclude, and maybe decisions persist with timestamp, criteria justification, and reviewer provenance.
+- **Evidence Matrix AI Extraction**:
+  - Connected `useAuth()` runtime keys to `EvidenceMatrixStudio.tsx`, allowing cell extractions to execute seamlessly across configured BYOK providers (Groq, Gemini) with fallback to manual editing.
+- **UI Clipping & Header Element Overlap**:
+  - Resolved layout collision between header action items and the literature sources sidebar.
+  - Implemented responsive breakpoints for header controls with container truncation on medium widths and reserved margin padding (`mr-80 md:mr-96`) for the center stage when sidebars are open.
+- **Flow Map Jitter & Dragging Reflows**:
+  - Eliminated CSS transitions triggering layout reflows on `.antigravity-card` during active drag operations.
+  - Decoupled single-click drag from selection state so moving cards and notes is fluid and 60 FPS.
+  - Restricted paper detail drawer opening strictly to double-click events.
+- **Elimination of Native Browser Dialogs**:
+  - Replaced raw browser `alert()`, `confirm()`, and `prompt()` popups across Flow Maps, LaTeX Studio, Formula Blocks, Literature Table, and Matrix Studio with accessible, dark-themed `NativeDialogContext` modals and toast notifications supporting keyboard shortcuts (`Escape` to cancel, `Enter` to confirm).
+- **Data Sheets Column Deletion**:
+  - Added interactive column deletion with confirmation modals in `DataSheetStudio.tsx`, allowing users to delete unwanted columns along with their associated cell values.
+
+---
+
 ## [v4.3.0] - 2026-11-01
 
 ### Added

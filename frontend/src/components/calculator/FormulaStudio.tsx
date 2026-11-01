@@ -20,6 +20,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import katex from 'katex';
+import { useNativeDialog } from '../../context/NativeDialogContext';
 
 export interface FormulaVariable {
   id: string;
@@ -153,6 +154,7 @@ interface FormulaStudioProps {
 }
 
 export const FormulaStudio: React.FC<FormulaStudioProps> = ({ onInsertToLatex }) => {
+  const { showAlert } = useNativeDialog();
   const [blocks, setBlocks] = useState<FormulaBlock[]>(() => {
     try {
       const saved = localStorage.getItem('litbuddy_formula_blocks');
@@ -331,10 +333,10 @@ export const FormulaStudio: React.FC<FormulaStudioProps> = ({ onInsertToLatex })
         setIsAiModalOpen(false);
         setAiPrompt('');
       } else {
-        alert('Could not synthesize formula from prompt. Please try another query.');
+        showAlert('Could not synthesize formula from prompt. Please try another query.', 'Formula Synthesis', 'warning');
       }
     } catch (err: any) {
-      alert(`Synthesis error: ${err.message}`);
+      showAlert(`Synthesis error: ${err.message}`, 'Synthesis Error', 'error');
     } finally {
       setIsAiLoading(false);
     }

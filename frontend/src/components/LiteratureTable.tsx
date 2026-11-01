@@ -12,6 +12,7 @@ import { ArrowUpDown, ExternalLink, Eye, Search, Download, Loader2 } from 'lucid
 import { ReviewPaper } from '../types';
 import { TagBadge } from './TagBadge';
 import { vaultSinglePaper } from '../services/api';
+import { useNativeDialog } from '../context/NativeDialogContext';
 
 interface LiteratureTableProps {
   papers: ReviewPaper[];
@@ -21,6 +22,7 @@ interface LiteratureTableProps {
 const columnHelper = createColumnHelper<ReviewPaper>();
 
 export const LiteratureTable: React.FC<LiteratureTableProps> = ({ papers, onSelectPaper }) => {
+  const { showAlert } = useNativeDialog();
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'relevance_score', desc: true },
   ]);
@@ -36,7 +38,7 @@ export const LiteratureTable: React.FC<LiteratureTableProps> = ({ papers, onSele
         window.open(res.download_url, '_blank');
       }
     } catch (err: any) {
-      alert(err.message || 'Full-text retrieval failed.');
+      showAlert(err.message || 'Full-text retrieval failed.', 'Download Failed', 'warning');
     } finally {
       setDownloadingId(null);
     }

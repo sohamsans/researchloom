@@ -8,9 +8,11 @@ import {
   FileSpreadsheet,
   Copy,
   Check,
-  Code
+  Code,
+  X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { useNativeDialog } from '../context/NativeDialogContext';
 
 export interface DataRow {
   id: string;
@@ -18,6 +20,7 @@ export interface DataRow {
 }
 
 export const DataSheetStudio: React.FC = () => {
+  const { showAlert, showConfirm, showToast } = useNativeDialog();
   const [columns, setColumns] = useState<string[]>(['Model / Method', 'Dataset', 'Accuracy (%)', 'Latency (ms)', 'F1 Score']);
   const [rows, setRows] = useState<DataRow[]>([
     { id: '1', 'Model / Method': 'LitBuddy Fast Triage', 'Dataset': 'arXiv AI Survey', 'Accuracy (%)': '94.2', 'Latency (ms)': '14', 'F1 Score': '0.92' },
@@ -57,6 +60,29 @@ export const DataSheetStudio: React.FC = () => {
     setRows(rows.filter(r => r.id !== rowId));
   };
 
+  // Delete column
+  const handleDeleteColumn = async (colToDelete: string) => {
+    if (columns.length <= 1) {
+      showAlert('A data sheet must have at least one column.', 'Cannot Delete', 'warning');
+      return;
+    }
+    const confirmed = await showConfirm(
+      `Delete column "${colToDelete}" and all its recorded data values?`,
+      'Delete Column'
+    );
+    if (!confirmed) return;
+
+    setColumns((prev) => prev.filter((c) => c !== colToDelete));
+    setRows((prev) =>
+      prev.map((r) => {
+        const next = { ...r };
+        delete next[colToDelete];
+        return next;
+      })
+    );
+    showToast(`Column "${colToDelete}" deleted`, 'info');
+  };
+
   // Export to Excel / CSV via SheetJS
   const handleExportExcel = () => {
     const dataToExport = rows.map(({ id, ...rest }) => rest);
@@ -87,7 +113,7 @@ export const DataSheetStudio: React.FC = () => {
           setRows(newRows);
         }
       } catch (err) {
-        alert('Failed to parse spreadsheet file.');
+        showAlert('Failed to parse spreadsheet file.', 'Import Error', 'error');
       }
     };
     reader.readAsBinaryString(file);
@@ -199,8 +225,18 @@ ${bodyRows} \\\\
               <tr className="bg-zinc-900/90 border-b border-zinc-800 text-zinc-400 font-semibold">
                 <th className="py-2.5 px-3 w-10 text-center font-mono">#</th>
                 {columns.map((col, idx) => (
-                  <th key={idx} className="py-2.5 px-3 border-r border-zinc-800/80 last:border-r-0">
-                    {col}
+                  <th key={idx} className="py-2.5 px-3 border-r border-zinc-800/80 last:border-r-0 group/th">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="truncate">{col}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteColumn(col)}
+                        className="opacity-0 group-hover/th:opacity-100 p-0.5 hover:bg-red-950/60 text-zinc-500 hover:text-red-400 rounded transition"
+                        title={`Delete "${col}" column`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
                   </th>
                 ))}
                 <th className="py-2.5 px-2 w-10 text-center"></th>

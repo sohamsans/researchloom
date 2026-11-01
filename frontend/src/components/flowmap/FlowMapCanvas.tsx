@@ -37,6 +37,7 @@ import { ReviewPaper, RawPaperMetadata } from '../../types';
 import { CollabRoomModal } from './CollabRoomModal';
 import { FlowContextMenu } from './FlowContextMenu';
 import { PaperPoolSelectorModal } from './PaperPoolSelectorModal';
+import { useNativeDialog } from '../../context/NativeDialogContext';
 
 export interface FlowNode {
   id: string;
@@ -137,6 +138,8 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
   onOpenPdf,
   onCitePaper
 }) => {
+  const { showAlert, showConfirm, showPrompt, showToast } = useNativeDialog();
+
   // Multi-canvas state
   const [canvases, setCanvases] = useState<SavedCanvas[]>([]);
   const [activeCanvasId, setActiveCanvasId] = useState<string>('default_canvas');
@@ -390,9 +393,11 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
 
   const handleDeleteCanvas = async (e: React.MouseEvent, canvasId: string) => {
     e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this flow map canvas? This cannot be undone.')) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      'Are you sure you want to delete this flow map canvas? This cannot be undone.',
+      'Delete Flow Map'
+    );
+    if (!confirmed) return;
 
     try {
       const resp = await fetch(`/api/flow/canvases/${canvasId}`, {
@@ -416,12 +421,13 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
             localStorage.removeItem('litbuddy_flowmap_active_session');
           }
         }
+        showToast('Flow map canvas deleted', 'info');
       } else {
-        alert('Failed to delete canvas from server.');
+        showAlert('Failed to delete canvas from server.', 'Error', 'error');
       }
     } catch (err: any) {
       console.warn('Error deleting canvas:', err);
-      alert('Network error while deleting canvas.');
+      showAlert('Network error while deleting canvas.', 'Error', 'error');
     }
   };
 
@@ -676,7 +682,7 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
   // Paper Trail Citation Parsing (Genuine Academic References)
   const handleTracePaperTrail = async (node: FlowNode) => {
     if (!node.doi) {
-      alert('Paper has no DOI attached for academic citation lookup.');
+      showToast('Paper has no DOI attached for academic citation lookup.', 'warning');
       return;
     }
 
@@ -751,10 +757,10 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
           ...childEdges
         ]);
       } else {
-        alert('No open references found for this paper.');
+        showToast('No open references found for this paper.', 'info');
       }
     } catch (e: any) {
-      alert(`Could not fetch paper citations: ${e.message}`);
+      showAlert(`Could not fetch paper citations: ${e.message}`, 'Citations Error', 'error');
     } finally {
       setPaperTrailLoading(null);
     }
@@ -843,12 +849,18 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
       return;
     }
 
-    setSelectedNodeId(node.id);
+    // Only start dragging — DO NOT open sidebar on single click!
     setDraggingNodeId(node.id);
     setNodeDragOffset({
       x: e.clientX / zoom - node.x,
       y: e.clientY / zoom - node.y
     });
+  };
+
+  // Node Double Click Handler: Exclusively opens the side details drawer
+  const handleNodeDoubleClick = (e: React.MouseEvent, node: FlowNode) => {
+    e.stopPropagation();
+    setSelectedNodeId(node.id);
   };
 
   // Canvas Panning
@@ -944,8 +956,8 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
   };
 
   // Create an empty folder node on canvas
-  const handleCreateEmptyFolder = () => {
-    const name = window.prompt('Enter folder name:', 'Citation Cluster');
+  const handleCreateEmptyFolder = async () => {
+    const name = await showPrompt('Enter folder name:', 'Citation Cluster', 'Create Cluster Folder', 'e.g. LLM Foundations');
     if (!name || !name.trim()) return;
 
     const newFolder: FlowNode = {
@@ -962,6 +974,8 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     setNodes((prev) => [...prev, newFolder]);
   };
 
+  const dragRafRef = useRef<number | null>(null);
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isPanning) {
       setPan({
@@ -969,15 +983,28 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
         y: e.clientY - dragStart.y
       });
     } else if (draggingNodeId) {
-      const newX = e.clientX / zoom - nodeDragOffset.x;
-      const newY = e.clientY / zoom - nodeDragOffset.y;
-      setNodes((prev) =>
-        prev.map((n) => (n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n))
-      );
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+
+      if (dragRafRef.current) {
+        cancelAnimationFrame(dragRafRef.current);
+      }
+
+      dragRafRef.current = requestAnimationFrame(() => {
+        const newX = clientX / zoom - nodeDragOffset.x;
+        const newY = clientY / zoom - nodeDragOffset.y;
+        setNodes((prev) =>
+          prev.map((n) => (n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n))
+        );
+      });
     }
   };
 
   const handleMouseUp = () => {
+    if (dragRafRef.current) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
     setIsPanning(false);
     setDraggingNodeId(null);
   };
@@ -1308,8 +1335,11 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
               <div
                 key={node.id}
                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
                 onContextMenu={(e) => handleNodeContextMenu(e, node)}
-                className={`absolute w-72 rounded-2xl antigravity-card p-3.5 cursor-grab active:cursor-grabbing transition-all ${colorTheme.border} ${colorTheme.bg} ${
+                className={`absolute w-72 rounded-2xl antigravity-card p-3.5 cursor-grab active:cursor-grabbing ${colorTheme.border} ${colorTheme.bg} ${
+                  draggingNodeId === node.id ? '' : 'transition-all'
+                } ${
                   isSelected ? 'ring-2 ring-zinc-400' : ''
                 } ${
                   isConnectingThis ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.35)]' : ''
@@ -1404,8 +1434,11 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
               <div
                 key={node.id}
                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
                 onContextMenu={(e) => handleNodeContextMenu(e, node)}
-                className={`absolute w-80 rounded-2xl antigravity-glass p-3.5 cursor-grab active:cursor-grabbing transition-all ${
+                className={`absolute w-80 rounded-2xl antigravity-glass p-3.5 cursor-grab active:cursor-grabbing ${
+                  draggingNodeId === node.id ? '' : 'transition-all'
+                } ${
                   isSelected ? 'ring-2 ring-zinc-400' : 'hover:border-zinc-600'
                 } ${
                   isConnectingThis ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.35)]' : ''
@@ -1480,8 +1513,11 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
             <div
               key={node.id}
               onMouseDown={(e) => handleNodeMouseDown(e, node)}
+              onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
               onContextMenu={(e) => handleNodeContextMenu(e, node)}
-              className={`absolute w-72 rounded-xl antigravity-card p-3 cursor-grab active:cursor-grabbing transition-all ${
+              className={`absolute w-72 rounded-xl antigravity-card p-3 cursor-grab active:cursor-grabbing ${
+                draggingNodeId === node.id ? '' : 'transition-all'
+              } ${
                 isSelected ? 'ring-2 ring-zinc-400' : ''
               } ${
                 isConnectingThis ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.35)]' : ''

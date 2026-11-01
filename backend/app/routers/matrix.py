@@ -17,7 +17,7 @@ from app.models.schemas import (
 from app.services.llm_provider import UniversalLLMClient
 from app.services.matrix_service import extract_matrix_cell_value
 
-router = APIRouter(prefix="/matrix", tags=["Evidence Matrix"])
+router = APIRouter(prefix="/api/matrix", tags=["Evidence Matrix"])
 
 @router.get("/workspace/{workspace_id}", response_model=MatrixFullDataResponse)
 async def get_workspace_matrix(workspace_id: str = "default_workspace", db: AsyncSession = Depends(get_db)):
@@ -198,26 +198,51 @@ async def extract_matrix_cell(req: MatrixCellExtractRequest, db: AsyncSession = 
 
 @router.put("/cells/{cell_id}", response_model=MatrixCellResponse)
 async def update_matrix_cell_manually(cell_id: str, req: MatrixCellUpdateRequest, db: AsyncSession = Depends(get_db)):
-    """Human edit / cell override with audit marker."""
-    cell_stmt = select(MatrixCell).where(MatrixCell.id == cell_id)
-    cell_res = await db.execute(cell_stmt)
-    cell = cell_res.scalar_one_or_none()
+    """Human edit / cell override with audit marker. Supports upserting if cell_id is 'new'."""
+    cell = None
+    if cell_id != "new":
+        cell_stmt = select(MatrixCell).where(MatrixCell.id == cell_id)
+        cell_res = await db.execute(cell_stmt)
+        cell = cell_res.scalar_one_or_none()
+    elif req.paper_id and req.column_id:
+        cell_stmt = select(MatrixCell).where(
+            MatrixCell.workspace_id == req.workspace_id,
+            MatrixCell.paper_id == req.paper_id,
+            MatrixCell.column_id == req.column_id
+        )
+        cell_res = await db.execute(cell_stmt)
+        cell = cell_res.scalar_one_or_none()
+
     if not cell:
-        raise HTTPException(status_code=404, detail="Matrix cell not found")
+        if not req.paper_id or not req.column_id:
+            raise HTTPException(status_code=400, detail="paper_id and column_id are required to create a new matrix cell")
+        cell = MatrixCell(
+            workspace_id=req.workspace_id or "default_workspace",
+            paper_id=req.paper_id,
+            column_id=req.column_id,
+            value=req.value,
+            status=req.status or "reported",
+            confidence=req.confidence or "high",
+            source_sentence=req.source_sentence,
+            source_page=req.source_page,
+            bounding_box_json=json.dumps(req.bounding_box) if req.bounding_box else None,
+            is_human_edited=True
+        )
+        db.add(cell)
+    else:
+        cell.value = req.value
+        if req.status:
+            cell.status = req.status
+        if req.confidence:
+            cell.confidence = req.confidence
+        if req.source_sentence is not None:
+            cell.source_sentence = req.source_sentence
+        if req.source_page is not None:
+            cell.source_page = req.source_page
+        if req.bounding_box is not None:
+            cell.bounding_box_json = json.dumps(req.bounding_box)
+        cell.is_human_edited = True
 
-    cell.value = req.value
-    if req.status:
-        cell.status = req.status
-    if req.confidence:
-        cell.confidence = req.confidence
-    if req.source_sentence is not None:
-        cell.source_sentence = req.source_sentence
-    if req.source_page is not None:
-        cell.source_page = req.source_page
-    if req.bounding_box is not None:
-        cell.bounding_box_json = json.dumps(req.bounding_box)
-
-    cell.is_human_edited = True
     await db.commit()
     await db.refresh(cell)
 

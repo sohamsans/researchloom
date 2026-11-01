@@ -22,6 +22,7 @@ import {
 import katex from 'katex';
 import { lintLatexSource, autoFixLatexSource, LatexDiagnosticError } from './latexLinter';
 import { MathPlotterModal } from './MathPlotterModal';
+import { useNativeDialog } from '../../context/NativeDialogContext';
 
 interface LatexStudioProps {
   latexSource: string;
@@ -170,6 +171,7 @@ export const LatexStudio: React.FC<LatexStudioProps> = ({
   isSaving,
   lastSaved
 }) => {
+  const { showPrompt } = useNativeDialog();
   const [viewMode, setViewMode] = useState<'split' | 'code' | 'preview'>('split');
   const [copied, setCopied] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -210,8 +212,8 @@ export const LatexStudio: React.FC<LatexStudioProps> = ({
   };
 
   // One-click Open in Local Overleaf Community Edition
-  const handleOpenLocalOverleaf = () => {
-    const localUrl = window.prompt('Enter your local Overleaf Community Edition URL:', 'http://localhost:80');
+  const handleOpenLocalOverleaf = async () => {
+    const localUrl = await showPrompt('Enter your local Overleaf Community Edition URL:', 'http://localhost:80', 'Connect Overleaf Server', 'http://localhost:80');
     if (localUrl) {
       window.open(localUrl, '_blank');
     }

@@ -625,6 +625,9 @@ export async function updateMatrixCellManually(
   cellId: string,
   update: {
     value: string;
+    paper_id?: string;
+    column_id?: string;
+    workspace_id?: string;
     status?: string;
     confidence?: string;
     source_sentence?: string;
@@ -648,7 +651,10 @@ export async function logScreeningDecision(req: ScreeningDecisionRequest): Promi
     headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
     body: JSON.stringify(req)
   });
-  if (!resp.ok) throw new Error('Failed to log screening decision');
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${resp.status}: Failed to log screening decision`);
+  }
   return resp.json();
 }
 

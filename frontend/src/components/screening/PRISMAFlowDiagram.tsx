@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { RawPaperMetadata, ReviewPaper, PRISMAStatsResponse, ScreeningAuditItem } from '../../types';
 import { logScreeningDecision, fetchPRISMAFlowStats } from '../../services/api';
+import { useNativeDialog } from '../../context/NativeDialogContext';
 
 interface PRISMAFlowDiagramProps {
   papers: RawPaperMetadata[];
@@ -25,6 +26,7 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
   papers = [],
   onOpenPdf
 }) => {
+  const { showAlert, showToast } = useNativeDialog();
   const [stats, setStats] = useState<PRISMAStatsResponse | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isExclusionModalOpen, setIsExclusionModalOpen] = useState(false);
@@ -61,9 +63,9 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
 
     try {
       await logScreeningDecision({
-        paper_id: currentPaper.id,
-        paper_title: currentPaper.title,
-        paper_doi: currentPaper.doi,
+        paper_id: String(currentPaper.id || `paper_${currentIndex}_${Date.now()}`),
+        paper_title: String(currentPaper.title || 'Untitled Candidate Paper'),
+        paper_doi: currentPaper.doi || undefined,
         action,
         exclusion_reason: action === 'excluded' ? (reason || selectedReason) : undefined,
         stage: 'screening',
@@ -76,8 +78,9 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
       }
       setIsExclusionModalOpen(false);
       loadStats();
+      showToast(`Decision recorded: ${action.toUpperCase()}`, action === 'included' ? 'success' : action === 'excluded' ? 'warning' : 'info');
     } catch (err: any) {
-      alert(`Screening decision failed: ${err.message}`);
+      showAlert(`Screening decision could not be recorded: ${err.message}`, 'Screening Error', 'error');
     }
   };
 

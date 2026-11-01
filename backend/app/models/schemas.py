@@ -324,6 +324,9 @@ class MatrixCellExtractRequest(BaseModel):
 
 class MatrixCellUpdateRequest(BaseModel):
     value: str
+    paper_id: Optional[str] = None
+    column_id: Optional[str] = None
+    workspace_id: Optional[str] = "default_workspace"
     status: Optional[str] = "reported"
     confidence: Optional[str] = "high"
     source_sentence: Optional[str] = None

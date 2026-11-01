@@ -19,6 +19,7 @@ import { api } from '../../services/api';
 import { RichDocEditor } from './RichDocEditor';
 import { LatexStudio, LATEX_TEMPLATES } from './LatexStudio';
 import { CitationPickerModal } from './CitationPickerModal';
+import { useNativeDialog } from '../../context/NativeDialogContext';
 
 interface WritingStudioProps {
   papers: ReviewPaper[];
@@ -63,6 +64,7 @@ export const WritingStudio: React.FC<WritingStudioProps> = ({
   onClearIncomingCitation,
   onClearIncomingFormula
 }) => {
+  const { showConfirm, showToast } = useNativeDialog();
   const [manuscripts, setManuscripts] = useState<ManuscriptItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeManuscript, setActiveManuscript] = useState<ManuscriptItem | null>(null);
@@ -252,7 +254,8 @@ export const WritingStudio: React.FC<WritingStudioProps> = ({
   // Delete manuscript
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this manuscript?')) {
+    const confirmed = await showConfirm('Are you sure you want to delete this manuscript?', 'Delete Manuscript');
+    if (confirmed) {
       try {
         await api.deleteManuscript(id);
       } catch (err) {
@@ -271,6 +274,7 @@ export const WritingStudio: React.FC<WritingStudioProps> = ({
         }
         return nextList;
       });
+      showToast('Manuscript deleted', 'info');
     }
   };
 

@@ -87,7 +87,7 @@ ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready stand
 
 ### Downloads (Windows 10/11 64-bit)
 - **Direct GitHub Releases**: [https://github.com/sohamsans/researchloom/releases](https://github.com/sohamsans/researchloom/releases)
-- **Package Archive (Recommended)**: `ResearchLoom-v4.2.0-beta.1-windows-x64.zip`
+- **Latest Release**: v4.3.1
 - **Standalone Binary**: `ResearchLoom.exe` (~110 MB, self-contained single file)
 - **Requirements**: Windows 10 or 11 (64-bit). No Python, Node.js, or command-line installation required. Simply extract the archive or run `ResearchLoom.exe`.
 

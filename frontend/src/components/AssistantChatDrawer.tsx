@@ -4,6 +4,7 @@ import { AssistantChatMessage, AssistantChatResponse } from '../types';
 import { sendAssistantChat, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ModelSwitcherPill } from './ModelSwitcherPill';
+import { useNativeDialog } from '../context/NativeDialogContext';
 
 interface AssistantChatDrawerProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
   onClose,
   onApplyQuery,
 }) => {
+  const { showConfirm, showToast } = useNativeDialog();
   const { activeProvider, activeModel, runtimeKeys, token, isAuthenticated } = useAuth();
   const [messages, setMessages] = useState<AssistantChatMessage[]>(() => {
     try {
@@ -44,8 +46,9 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
     } catch {}
   }, [messages]);
 
-  const handleClearCopilot = () => {
-    if (window.confirm('Reset Copilot conversation?')) {
+  const handleClearCopilot = async () => {
+    const confirmed = await showConfirm('Reset Copilot conversation and clear history?', 'Reset Copilot');
+    if (confirmed) {
       const initial: AssistantChatMessage[] = [
         {
           role: 'assistant',
@@ -57,6 +60,7 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
       try {
         localStorage.removeItem('researchloom_copilot_chat');
       } catch {}
+      showToast('Copilot conversation reset', 'info');
     }
   };
 

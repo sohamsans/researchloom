@@ -24,6 +24,8 @@ import {
   extractMatrixCell,
   updateMatrixCellManually
 } from '../../services/api';
+import { useNativeDialog } from '../../context/NativeDialogContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface EvidenceMatrixStudioProps {
   papers: ReviewPaper[];
@@ -36,7 +38,16 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
   candidatePapers = [],
   onOpenPdfWithHighlight
 }) => {
-  // Combine all available papers (synthesized + candidate pool)
+  const { showAlert, showConfirm, showToast } = useNativeDialog();
+  const { activeProvider, activeModel, runtimeKeys } = useAuth();
+
+  // Combine all available papers (synthesized + candidate pool + user-added manual rows)
+  const [manualRows, setManualRows] = useState<Array<{ id: string; title: string; doi?: string; year?: number; authors?: string[] }>>([]);
+  const [isAddRowModalOpen, setIsAddRowModalOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualYear, setManualYear] = useState('');
+  const [manualDoi, setManualDoi] = useState('');
+
   const allPapers = useMemo(() => {
     const list: Array<{ id: string; title: string; doi?: string; year?: number; authors?: string[] }> = [];
     const seen = new Set<string>();
@@ -58,8 +69,16 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
       }
     });
 
+    manualRows.forEach((p) => {
+      const key = (p.doi || p.title).toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(p);
+      }
+    });
+
     return list;
-  }, [papers, candidatePapers]);
+  }, [papers, candidatePapers, manualRows]);
 
   // Matrix State
   const [columns, setColumns] = useState<MatrixColumnDefinition[]>([]);
@@ -127,14 +146,41 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
       setIsColModalOpen(false);
       setNewColName('');
       setNewColPrompt('');
+      showToast(`Column "${created.column_name}" created`, 'success');
     } catch (err: any) {
-      alert(err.message || 'Failed to create column');
+      showAlert(err.message || 'Failed to create column', 'Error', 'error');
     }
+  };
+
+  // Add Manual Paper Row Handler
+  const handleAddManualRow = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualTitle.trim()) return;
+
+    const newRow = {
+      id: `manual_paper_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: manualTitle.trim(),
+      year: manualYear ? parseInt(manualYear) : new Date().getFullYear(),
+      doi: manualDoi.trim() || undefined,
+      authors: ['Researcher (Manual)']
+    };
+
+    setManualRows((prev) => [newRow, ...prev]);
+    setManualTitle('');
+    setManualYear('');
+    setManualDoi('');
+    setIsAddRowModalOpen(false);
+    showToast('Manual row added to matrix', 'success');
   };
 
   // Delete Column Handler
   const handleDeleteColumn = async (columnId: string) => {
-    if (!confirm('Delete this extraction column and its extracted data?')) return;
+    const confirmed = await showConfirm(
+      'Delete this extraction column and its extracted data?',
+      'Delete Column'
+    );
+    if (!confirmed) return;
+
     try {
       await deleteMatrixColumn(columnId);
       setColumns((prev) => prev.filter((c) => c.id !== columnId));
@@ -145,8 +191,9 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
         });
         return next;
       });
+      showToast('Column deleted', 'info');
     } catch (err: any) {
-      alert(err.message || 'Failed to delete column');
+      showAlert(err.message || 'Failed to delete column', 'Error', 'error');
     }
   };
 
@@ -163,11 +210,16 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
         columnId: col.id,
         columnName: col.column_name,
         prompt: col.prompt,
-        dataType: col.data_type
+        dataType: col.data_type,
+        modelProvider: activeProvider,
+        modelName: activeModel,
+        groqApiKey: runtimeKeys?.groq,
+        geminiApiKey: runtimeKeys?.gemini
       });
       setCells((prev) => ({ ...prev, [cellKey]: cellData }));
+      showToast(`Extracted value for "${col.column_name}"`, 'success');
     } catch (err: any) {
-      alert(`Extraction failed for "${col.column_name}": ${err.message}`);
+      showAlert(`Extraction failed for "${col.column_name}": ${err.message}`, 'Extraction Error', 'error');
     } finally {
       setExtractingCells((prev) => {
         const next = new Set(prev);
@@ -180,33 +232,37 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
   // Batch Extract Column across all papers
   const handleExtractEntireColumn = async (col: MatrixColumnDefinition) => {
     if (allPapers.length === 0) return;
-    if (!confirm(`Run automated extraction for column "${col.column_name}" across ${allPapers.length} papers?`)) return;
+    const confirmed = await showConfirm(
+      `Run automated extraction for column "${col.column_name}" across ${allPapers.length} papers?`,
+      'Batch Column Extraction'
+    );
+    if (!confirmed) return;
 
     for (const paper of allPapers) {
       await handleExtractCell(paper, col);
     }
   };
 
-  // Manual Cell Edit Save
+  // Manual Cell Edit Save (Immediate In-Cell Override or Creation)
   const handleSaveCellEdit = async () => {
     if (!editingCell) return;
     const { cell, paperId, columnId, currentValue } = editingCell;
 
-    if (cell) {
-      try {
-        const updated = await updateMatrixCellManually(cell.id, {
-          value: currentValue,
-          status: 'reported',
-          confidence: 'high'
-        });
-        setCells((prev) => ({ ...prev, [editingCell.key]: updated }));
-        setEditingCell(null);
-      } catch (err: any) {
-        alert(err.message || 'Failed to update cell');
-      }
-    } else {
-      // If cell had no record yet, trigger an immediate single-cell extraction or manual insert
+    try {
+      const cellIdToUse = cell ? cell.id : 'new';
+      const updated = await updateMatrixCellManually(cellIdToUse, {
+        value: currentValue,
+        paper_id: paperId,
+        column_id: columnId,
+        workspace_id: 'default_workspace',
+        status: 'reported',
+        confidence: 'high'
+      });
+      setCells((prev) => ({ ...prev, [editingCell.key]: updated }));
       setEditingCell(null);
+      showToast('Cell updated manually', 'success');
+    } catch (err: any) {
+      showAlert(err.message || 'Failed to update cell', 'Error', 'error');
     }
   };
 
@@ -254,7 +310,7 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
     tex += `\\hline\n\\end{tabular}\n\\end{table*}`;
 
     navigator.clipboard.writeText(tex);
-    alert('LaTeX table syntax copied to clipboard!');
+    showToast('LaTeX table syntax copied to clipboard!', 'success');
   };
 
   const filteredPapers = useMemo(() => {
@@ -296,6 +352,16 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
               className="w-full pl-8 pr-3 py-1 text-xs bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-hidden focus:border-zinc-600"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAddRowModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-100 text-xs font-semibold shadow-xs transition cursor-pointer"
+            title="Add a custom paper or study row manually"
+          >
+            <Plus className="w-3.5 h-3.5 text-sky-400" />
+            <span>Add Row</span>
+          </button>
 
           <button
             type="button"
@@ -498,14 +564,34 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
                                 </div>
                               </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleExtractCell(paper, col)}
-                                className="w-full py-2 border border-dashed border-zinc-800 hover:border-zinc-600 rounded-lg text-zinc-500 hover:text-zinc-300 text-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                              >
-                                <Sparkles className="w-3 h-3 text-zinc-500" />
-                                <span>Extract</span>
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleExtractCell(paper, col)}
+                                  className="flex-1 py-1.5 px-2 border border-dashed border-zinc-800 hover:border-zinc-600 rounded-lg text-zinc-500 hover:text-zinc-300 text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                                  title="Extract using AI and document search"
+                                >
+                                  <Sparkles className="w-3 h-3 text-zinc-500" />
+                                  <span>AI Extract</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditingCell({
+                                      key: cellKey,
+                                      cell: null,
+                                      paperId: paper.id,
+                                      columnId: col.id,
+                                      currentValue: ''
+                                    })
+                                  }
+                                  className="py-1.5 px-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 text-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                                  title="Enter value manually without AI"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                  <span>Enter</span>
+                                </button>
+                              </div>
                             )}
                           </td>
                         );
@@ -637,6 +723,82 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
                 Save Override
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Paper Row Modal */}
+      {isAddRowModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                <Plus className="w-4 h-4 text-sky-400" />
+                <span>Add Study or Paper to Matrix</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddRowModalOpen(false)}
+                className="text-zinc-500 hover:text-zinc-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddManualRow} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Paper or Study Title <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="e.g. Hydrodynamic Analysis of Ventilated Supercavities"
+                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-hidden focus:border-zinc-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">Year</label>
+                  <input
+                    type="number"
+                    value={manualYear}
+                    onChange={(e) => setManualYear(e.target.value)}
+                    placeholder="2024"
+                    className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-hidden focus:border-zinc-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">DOI (Optional)</label>
+                  <input
+                    type="text"
+                    value={manualDoi}
+                    onChange={(e) => setManualDoi(e.target.value)}
+                    placeholder="10.1016/..."
+                    className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-hidden focus:border-zinc-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRowModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-semibold shadow-xs"
+                >
+                  Add Row
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
