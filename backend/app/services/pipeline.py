@@ -18,19 +18,21 @@ async def process_paper_deep_extraction(
     topic: str,
     score: int,
     rationale: str,
-    llm: LLMService
+    llm: LLMService,
+    research_goal: Optional[str] = None
 ) -> ReviewPaper:
     """Download OA PDF or fallback to abstract, then run Stage 2 deep extraction with Tier 2 caching."""
     from app.services.cache_service import get_cached_synthesis, save_paper_synthesis
 
-    # 1. Check Tier 2 Synthesis Cache
-    cached_synthesis = await get_cached_synthesis(paper.doi, paper.title)
-    if cached_synthesis is not None:
-        print(f"[Cache Hit: Tier 2 Synthesis] Reused review for '{paper.title[:50]}' (0 LLM tokens).")
-        # Update relevance score from current triage if appropriate
-        cached_synthesis.relevance_score = score
-        cached_synthesis.triage_rationale = rationale
-        return cached_synthesis
+    # 1. Check Tier 2 Synthesis Cache only if no explicit custom research goal is modifying synthesis
+    if not research_goal:
+        cached_synthesis = await get_cached_synthesis(paper.doi, paper.title)
+        if cached_synthesis is not None:
+            print(f"[Cache Hit: Tier 2 Synthesis] Reused review for '{paper.title[:50]}' (0 LLM tokens).")
+            # Update relevance score from current triage if appropriate
+            cached_synthesis.relevance_score = score
+            cached_synthesis.triage_rationale = rationale
+            return cached_synthesis
 
     doi_link = f"https://doi.org/{paper.doi}" if paper.doi else (paper.pdf_url or "")
     sliced_text, pdf_downloaded = await get_paper_content_slices(
@@ -56,11 +58,13 @@ async def process_paper_deep_extraction(
     review_item = await llm.deep_extraction(
         topic=topic,
         paper_meta=paper_meta,
-        text_slice=sliced_text
+        text_slice=sliced_text,
+        research_goal=research_goal
     )
 
     # 2. Save into Tier 2 Synthesis Cache
-    await save_paper_synthesis(review_item)
+    if not research_goal:
+        await save_paper_synthesis(review_item)
 
     return review_item
 
@@ -204,7 +208,11 @@ async def run_pipeline_on_selected_papers(request: SelectedPipelineRequest) -> P
 
     # Stage 1: Batch Triage on selected candidate set
     candidate_dicts = [p.model_dump() for p in request.selected_papers]
-    triage_result = await llm.batch_triage(topic=request.topic, candidates=candidate_dicts)
+    triage_result = await llm.batch_triage(
+        topic=request.topic,
+        candidates=candidate_dicts,
+        research_goal=request.research_goal
+    )
     triage_map = {item.id: item for item in triage_result.evaluations}
 
     # Helper function for topical redundancy check (detect papers that repeat the same thing)
@@ -284,7 +292,14 @@ async def run_pipeline_on_selected_papers(request: SelectedPipelineRequest) -> P
             rationale = t_info.rationale if t_info else "Selected by researcher."
             try:
                 return await asyncio.wait_for(
-                    process_paper_deep_extraction(p, request.topic, score, rationale, llm),
+                    process_paper_deep_extraction(
+                        p,
+                        request.topic,
+                        score,
+                        rationale,
+                        llm,
+                        research_goal=request.research_goal
+                    ),
                     timeout=14.0
                 )
             except asyncio.TimeoutError:

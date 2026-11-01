@@ -30,6 +30,7 @@ import { TopographicBackground } from './components/TopographicBackground';
 import { fetchHealthStatus, discoverPapers, runSelectedPipeline, runReviewPipeline, bulkDownloadPapers } from './services/api';
 import { FormulaStudio } from './components/calculator/FormulaStudio';
 import { StatisticsStudio } from './components/statistics/StatisticsStudio';
+import { SynthesisObjectiveModal } from './components/SynthesisObjectiveModal';
 import {
   HealthStatus,
   PipelineResponse,
@@ -54,6 +55,7 @@ const MainLayout: React.FC = () => {
   // Modals
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
   const [isTabletModalOpen, setIsTabletModalOpen] = useState(false);
+  const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false);
 
   // PDF Viewer Modal
   const [viewerVaultId, setViewerVaultId] = useState<string | null>(null);
@@ -436,9 +438,10 @@ const MainLayout: React.FC = () => {
     }
   };
 
-  const handleProceedToSynthesis = async () => {
+  const handleProceedToSynthesis = async (researchGoal?: string) => {
     if (!lastRequestParams || selectedPaperIds.size === 0) return;
 
+    setIsObjectiveModalOpen(false);
     setError(null);
     setStage('triaging');
 
@@ -454,6 +457,7 @@ const MainLayout: React.FC = () => {
 
       const response = await runSelectedPipeline({
         topic: compositeTopic,
+        research_goal: researchGoal,
         selected_papers: selectedList,
         relevance_threshold: lastRequestParams.relevanceThreshold || 4,
         max_synthesis_count: undefined, // Dynamic: determined by topic relevance & redundancy, not an arbitrary hard cap
@@ -831,7 +835,7 @@ const MainLayout: React.FC = () => {
                     }}
                     onSelectAll={() => setSelectedPaperIds(new Set(discoveredPapers.map((p) => p.id)))}
                     onDeselectAll={() => setSelectedPaperIds(new Set())}
-                    onProceedToSynthesis={handleProceedToSynthesis}
+                    onProceedToSynthesis={() => setIsObjectiveModalOpen(true)}
                     onBulkDownload={handleBulkDownload}
                     isProcessing={stage === 'triaging' || stage === 'extracting'}
                     pooledQueries={queryHistory}
@@ -971,6 +975,16 @@ const MainLayout: React.FC = () => {
         onClose={() => setIsRollbackOpen(false)}
         onRollback={handleRollbackSnapshot}
         onTakeManualSnapshot={() => takeSnapshot('Manual Researcher Snapshot')}
+      />
+
+      {/* Guided Research Objective Modal */}
+      <SynthesisObjectiveModal
+        isOpen={isObjectiveModalOpen}
+        onClose={() => setIsObjectiveModalOpen(false)}
+        onProceed={(goal) => handleProceedToSynthesis(goal)}
+        pooledQueries={queryHistory}
+        candidateCount={selectedPaperIds.size}
+        currentTopic={currentTopic}
       />
 
       <OnboardingKeyModal />

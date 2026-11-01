@@ -108,6 +108,7 @@ class DiscoveryResponse(BaseModel):
 
 class SelectedPipelineRequest(BaseModel):
     topic: str
+    research_goal: Optional[str] = Field(default=None, description="User-specified objective or research goal guiding candidate triage and extraction.")
     selected_papers: List[RawPaperMetadata]
     relevance_threshold: int = Field(default=4, ge=1, le=5)
     max_synthesis_count: Optional[int] = Field(default=None)

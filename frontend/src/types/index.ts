@@ -42,6 +42,7 @@ export interface DiscoveryResponse {
 
 export interface SelectedPipelineRequest {
   topic: string;
+  research_goal?: string;
   selected_papers: RawPaperMetadata[];
   relevance_threshold: number;
   max_synthesis_count?: number;

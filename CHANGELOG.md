@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.3.0] - 2026-11-01
+
+### Added
+- **Guided Research Objective Synthesis Workflow**:
+  - Implemented an objective alignment step before multi-topic candidate synthesis. When pooling multiple diverse queries (e.g. *rocket engine modeling*, *solid rocket motors*, *supercavitation*, *underwater ramjets*), unrelated papers in peripheral domains are filtered out based on the user's explicit research goal or overarching inquiry.
+  - Added `SynthesisObjectiveModal.tsx` triggering from the candidate preview table upon clicking "Synthesize Selected". Surfaces active pooled queries, provides a prompt area for custom objective input, and generates dynamic 1-click suggested focus anchors derived from the search topics.
+  - Supports bypass via "Standard Synthesis" for users who prefer unguided broad screening.
+  - Backend schema extended with `research_goal: Optional[str] = None` in `SelectedPipelineRequest`.
+  - Updated LLM Stage 1 batch triage to evaluate candidate relevance strictly against the research objective when provided, scoring off-target matches 1-2.
+  - Stage 2 deep extraction contextualizes `core_problem` and `critical_remarks` through the lens of the research goal.
+
+---
+
 ## [v4.2.0-beta.3] - 2026-10-13
 
 ### Fixed

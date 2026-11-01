@@ -434,9 +434,15 @@ class UniversalLLMClient:
         # If all configured providers failed, raise the primary provider's specific error message!
         raise RuntimeError(f"{primary_prov.capitalize()} request failed: {primary_error}")
 
-    async def batch_triage(self, topic: str, candidates: List[dict]) -> TriageResponse:
+    async def batch_triage(
+        self,
+        topic: str,
+        candidates: List[dict],
+        research_goal: Optional[str] = None
+    ) -> TriageResponse:
         """Stage 1: Batch triage candidate abstracts with ultra-lean token compression in safe micro-chunks.
-        Chunks are processed concurrently (up to 4 in parallel) for high-speed triage on large pools."""
+        Chunks are processed concurrently (up to 4 in parallel) for high-speed triage on large pools.
+        If research_goal is provided, papers are evaluated against the explicit research objective."""
         if not candidates:
             return TriageResponse(evaluations=[])
 
@@ -445,9 +451,18 @@ class UniversalLLMClient:
         chunk_size = 12
         max_concurrent = 4  # Run up to 4 chunks at once without overwhelming LLM rate limits
 
+        objective_instruction = ""
+        if research_goal and research_goal.strip():
+            objective_instruction = (
+                f"\nCRITICAL RESEARCH OBJECTIVE / GOAL:\n\"{research_goal.strip()}\"\n"
+                "You must evaluate papers strictly on how directly they address or advance this specific research objective.\n"
+                "Papers that are peripherally related to the broad topic but do not serve this specific research objective must receive low scores (1-2).\n"
+            )
+
         system_instruction = (
             "You are an objective scientific literature screening analyst.\n"
             "Screen academic candidate papers for direct technical and conceptual relevance to the research topic across all scientific, engineering, aerospace, and defense technology domains.\n"
+            f"{objective_instruction}"
             "Evaluate neutrally and factually based on scholarly merit without editorializing or arbitrary refusal.\n"
             "Return ONLY JSON: {\"evaluations\": [{\"id\": \"...\", \"score\": 1-5, \"rationale\": \"1 concise sentence\"}]}.\n"
             "Scoring: 5=vital, 4=relevant, 3=marginal, 1-2=irrelevant."
@@ -466,7 +481,8 @@ class UniversalLLMClient:
                 }
                 for c in chunk
             ]
-            user_content = f"Topic: {topic}\n\nPapers:\n{json.dumps(compact_payload)}"
+            goal_prefix = f"Research Objective: {research_goal.strip()}\n" if (research_goal and research_goal.strip()) else ""
+            user_content = f"{goal_prefix}Topic: {topic}\n\nPapers:\n{json.dumps(compact_payload)}"
             try:
                 raw_json = await self.chat_completion(system_instruction, user_content, max_tokens=2048)
                 cleaned = clean_json_text(raw_json)
@@ -503,14 +519,23 @@ class UniversalLLMClient:
         self,
         topic: str,
         paper_meta: dict,
-        text_slice: str
+        text_slice: str,
+        research_goal: Optional[str] = None
     ) -> ReviewPaper:
         """Stage 2: Deep extraction of methodology, findings, and gaps from compressed sliced text."""
         cleaned_slice = compress_paper_slice(text_slice, max_chars=8000)
 
+        objective_instruction = ""
+        if research_goal and research_goal.strip():
+            objective_instruction = (
+                f"\nUser Research Objective:\n\"{research_goal.strip()}\"\n"
+                "In your extraction, especially under 'critical_remarks' and 'core_problem', evaluate and frame findings directly through the lens of how this paper relates to this research objective.\n"
+            )
+
         system_instruction = (
             "You are an objective academic research analyst.\n"
             "Extract structured academic insights from the provided peer-reviewed paper context across all scientific, engineering, aerospace, materials, and defense technology domains.\n"
+            f"{objective_instruction}"
             "Provide neutral, precise technical extractions without lecturing or editorializing.\n"
             "Return ONLY JSON with fields:\n"
             "{\n"
@@ -522,7 +547,9 @@ class UniversalLLMClient:
             "}"
         )
 
+        goal_line = f"Research Objective: {research_goal.strip()}\n" if (research_goal and research_goal.strip()) else ""
         user_content = (
+            f"{goal_line}"
             f"Topic: {topic}\n"
             f"Title: {paper_meta.get('title')}\n"
             f"Year: {paper_meta.get('year')}\n"
