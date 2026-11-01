@@ -80,22 +80,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right Controls: Focus Music Dock, Tablet, Skills, Tutorial, BYOK, User */}
+      {/* Right Controls: Focus Music Dock, Skills, Tutorial, BYOK, User */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <MusicFocusBar />
-
-        {/* Wireless Tablet Stylus Button */}
-        {onOpenTabletBridge && (
-          <button
-            type="button"
-            onClick={onOpenTabletBridge}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs cursor-pointer"
-            title="Connect Android Tablet (S-Pen) or iPad (Apple Pencil) for wireless stylus drawing"
-          >
-            <Tablet className="w-3.5 h-3.5 text-sky-400" />
-            <span className="hidden xl:inline">Tablet Stylus</span>
-          </button>
-        )}
 
         {/* AI Skills Synthesizer Button */}
         {onOpenSkills && (
