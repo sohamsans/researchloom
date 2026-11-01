@@ -13,10 +13,10 @@
   - [x] 2.2 Keyboard Hotkey Triage Interface (`J`/`K`/`L`) & Exclusion Taxonomy <!-- id: 9 -->
   - [x] 2.3 Interactive Vector PRISMA 2020 Flowchart (`PRISMAFlowDiagram.tsx`) <!-- id: 10 -->
 
-- [ ] Phase 3: The "Loom" Citation & Lineage Graph (Miro Canvas Extension) <!-- id: 11 -->
-  - [ ] 3.1 Open Scholarly Graph Seed Expansion & Edge Classification <!-- id: 12 -->
-  - [ ] 3.2 Chronological Swimlane Timeline View & Viewport Frustum Culling <!-- id: 13 -->
-  - [ ] 3.3 Semantic Research Frames & Lasso Multi-Select <!-- id: 14 -->
+- [x] Phase 3: The "Loom" Citation & Lineage Graph (Miro Canvas Extension) <!-- id: 11 -->
+  - [x] 3.1 Open Scholarly Graph Seed Expansion & Edge Classification <!-- id: 12 -->
+  - [x] 3.2 Chronological Swimlane Timeline View & Viewport Frustum Culling <!-- id: 13 -->
+  - [x] 3.3 Semantic Research Frames & Lasso Multi-Select <!-- id: 14 -->
 
 - [ ] Phase 4: Grounded Literature Review Writer & Academic Editor <!-- id: 15 -->
   - [ ] 4.1 Inline `@` Citation Autocomplete & Reactive Key Sync <!-- id: 16 -->

@@ -471,6 +471,13 @@ export const RichDocEditor: React.FC<RichDocEditorProps> = ({
               ref={editorRef}
               contentEditable
               onInput={handleInput}
+              onKeyDown={(e) => {
+                // If user types '@', trigger inline citation autocomplete modal
+                if (e.key === '@') {
+                  e.preventDefault();
+                  onOpenCitationPicker();
+                }
+              }}
               suppressContentEditableWarning
               className="prose prose-invert max-w-none text-zinc-200 focus:outline-hidden leading-relaxed text-sm select-text [&>h1]:text-2xl [&>h1]:font-bold [&>h1]:mt-6 [&>h1]:mb-3 [&>h2]:text-xl [&>h2]:font-bold [&>h2]:mt-5 [&>h2]:mb-2 [&>h3]:text-base [&>h3]:font-semibold [&>h3]:mt-4 [&>h3]:mb-1.5 [&>p]:my-3 [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&>table]:w-full [&>table]:my-4"
               style={{ minHeight: '800px' }}
