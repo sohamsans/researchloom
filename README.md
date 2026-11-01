@@ -108,22 +108,30 @@ researchloom/
 
 ---
 
-## Beta Release & Standalone Downloads
+## Standalone Downloads & Multi-Platform Support
 
-ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready standalone executable for Windows 10/11:
+ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready desktop application for both Windows and macOS:
 
-### Downloads (Windows 10/11 64-bit)
+### 1. Windows (10/11 64-bit)
 - **Direct GitHub Releases**: [https://github.com/sohamsans/researchloom/releases](https://github.com/sohamsans/researchloom/releases)
-- **Latest Release**: v4.3.1 (November 1, 2026)
 - **Package Archive (Recommended)**: `ResearchLoom-v4.3.1-windows-x64.zip`
-- **Standalone Binary**: `ResearchLoom.exe` (~110 MB, self-contained single file)
-- **Requirements**: Windows 10 or 11 (64-bit). No Python, Node.js, or command-line installation required. Simply extract the archive or run `ResearchLoom.exe`.
+- **Standalone Binary**: `ResearchLoom.exe` (~110 MB, single executable, zero setup)
 
-### Note on Browser & Windows SmartScreen Warnings
-Because ResearchLoom is a free open-source student project without an expensive (\$300-\$500/year) commercial corporate code-signing certificate:
-1. **Google Chrome / Browser Warning**: If Chrome prompts "ResearchLoom.exe isn't commonly downloaded and may be dangerous", click the arrow next to the download and select **Keep** (or download the `.zip` archive instead).
-2. **Windows SmartScreen Prompt**: If Windows shows "Windows protected your PC / Unknown Publisher", click **More info** and select **Run anyway**.
-The application is 100% open-source, contains zero telemetry or trackers, and full source code is public and inspectable in this repository.
+### 2. macOS (Apple Silicon M-Series & Intel)
+- **macOS Disk Image**: Download `ResearchLoom-macOS-arm64.dmg` from the [Releases](https://github.com/sohamsans/researchloom/releases) page. Open the `.dmg` and drag `ResearchLoom.app` into your Applications folder.
+- **Local Run (Alternative)**:
+  ```bash
+  git clone https://github.com/sohamsans/researchloom.git
+  cd researchloom
+  pip install -r backend/requirements.txt pywebview
+  python backend/litbuddy_app.py
+  ```
+
+### Note on Unsigned App Prompts
+Because ResearchLoom is a free open-source project without commercial corporate code-signing certificates:
+1. **Windows SmartScreen**: Click **More info** and select **Run anyway**.
+2. **macOS Gatekeeper**: On first launch, if macOS displays an unidentified developer prompt, right-click (or Control-click) `ResearchLoom.app` and choose **Open**, then confirm.
+The software is 100% open-source with full code inspection available in this repository.
 
 ---
 
