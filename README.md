@@ -4,6 +4,25 @@
 
 ---
 
+## Screenshots & Visual Walkthrough
+
+### 1. Literature Discovery & Candidate Search
+![Literature Discovery Workbench](docs/screenshots/01_discover_workbench.png)
+
+### 2. Scientific Formula Blocks & Model Chaining
+![Scientific Formula Blocks](docs/screenshots/06_formula_blocks.png)
+
+### 3. Systematic Review & PRISMA 2020 Screening
+![PRISMA 2020 Screening Workflow](docs/screenshots/04_prisma_screening.png)
+
+### 4. Interactive Data Sheets & Experiment Tables
+![Research Data Sheets](docs/screenshots/07_data_sheets.png)
+
+### 5. Writing Studio & Academic Manuscript Editor
+![Academic Writing Studio](docs/screenshots/03_latex_studio.png)
+
+---
+
 ## Architecture Overview
 
 ```
