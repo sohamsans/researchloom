@@ -10,6 +10,7 @@ import {
   Calculator,
   TrendingUp,
   Table,
+  Filter,
   Bookmark,
   Download,
   Settings,
@@ -29,7 +30,7 @@ import { api } from '../services/api';
 import { SavedSearchItem } from '../types';
 import { LitBuddyLogo } from './LitBuddyLogo';
 
-export type MainTabType = 'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'matrix' | 'formulas' | 'stats';
+export type MainTabType = 'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'matrix' | 'screening' | 'formulas' | 'stats';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -155,6 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems: Array<{ id: MainTabType; label: string; icon: React.FC<{ className?: string }> }> = [
     { id: 'research', label: 'Research', icon: MessageSquare },
+    { id: 'screening', label: 'PRISMA Screening', icon: Filter },
     { id: 'matrix', label: 'Evidence Matrix', icon: Table },
     { id: 'studio', label: 'Writing Studio', icon: PenTool },
     { id: 'flow', label: 'Flow Maps', icon: Network },

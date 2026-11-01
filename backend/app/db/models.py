@@ -162,3 +162,19 @@ class MatrixCell(Base):
     is_human_edited = Column(Boolean, default=False)
     updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
 
+class ScreeningAuditLog(Base):
+    """Systematic PRISMA 2020 screening decision audit trail."""
+    __tablename__ = "screening_audit_log"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id = Column(String(64), index=True, default="default_workspace")
+    paper_id = Column(String(128), index=True, nullable=False)
+    paper_title = Column(String(500), nullable=False)
+    paper_doi = Column(String(255), nullable=True)
+    action = Column(String(20), nullable=False) # 'included', 'excluded', 'maybe'
+    exclusion_reason = Column(String(100), nullable=True) # e.g. 'Wrong Population', 'Non-English', 'No Empirical Data', 'Preprint Only'
+    stage = Column(String(30), default="screening") # 'identification', 'screening', 'eligibility', 'included'
+    reviewer_id = Column(String(100), default="primary_reviewer")
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=get_utc_now)
+

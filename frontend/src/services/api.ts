@@ -18,7 +18,10 @@ import {
   ManuscriptListResponse,
   MatrixColumnDefinition,
   MatrixCellData,
-  MatrixFullDataResponse
+  MatrixFullDataResponse,
+  ScreeningDecisionRequest,
+  ScreeningAuditItem,
+  PRISMAStatsResponse
 } from '../types';
 
 const API_BASE = '/api';
@@ -634,6 +637,26 @@ export async function updateMatrixCellManually(
     body: JSON.stringify(update)
   });
   if (!resp.ok) throw new Error('Failed to update matrix cell');
+  return resp.json();
+}
+
+// ----------------- PRISMA 2020 Screening API -----------------
+
+export async function logScreeningDecision(req: ScreeningDecisionRequest): Promise<ScreeningAuditItem> {
+  const resp = await fetch(`${API_BASE}/screening/decision`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(req)
+  });
+  if (!resp.ok) throw new Error('Failed to log screening decision');
+  return resp.json();
+}
+
+export async function fetchPRISMAFlowStats(workspaceId: string = 'default_workspace'): Promise<PRISMAStatsResponse> {
+  const resp = await fetch(`${API_BASE}/screening/prisma-flow/${workspaceId}`, {
+    headers: { ...getAuthHeader() }
+  });
+  if (!resp.ok) throw new Error('Failed to fetch PRISMA flow statistics');
   return resp.json();
 }
 

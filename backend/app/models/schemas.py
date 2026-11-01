@@ -348,3 +348,41 @@ class MatrixFullDataResponse(BaseModel):
     columns: List[MatrixColumnResponse]
     cells: List[MatrixCellResponse]
 
+# ----------------- PRISMA 2020 Systematic Screening Schemas -----------------
+
+class ScreeningDecisionRequest(BaseModel):
+    workspace_id: str = "default_workspace"
+    paper_id: str
+    paper_title: str
+    paper_doi: Optional[str] = None
+    action: str # 'included', 'excluded', 'maybe'
+    exclusion_reason: Optional[str] = None # 'Wrong Population', 'Non-English', 'No Empirical Data', 'Preprint Only', 'Duplicate'
+    stage: str = "screening" # 'identification', 'screening', 'eligibility', 'included'
+    reviewer_id: str = "primary_reviewer"
+    notes: Optional[str] = None
+
+class ScreeningAuditItemResponse(BaseModel):
+    id: str
+    workspace_id: str
+    paper_id: str
+    paper_title: str
+    paper_doi: Optional[str] = None
+    action: str
+    exclusion_reason: Optional[str] = None
+    stage: str
+    reviewer_id: str
+    notes: Optional[str] = None
+    created_at: str
+
+class PRISMAStatsResponse(BaseModel):
+    total_identified: int
+    duplicates_removed: int
+    total_screened: int
+    screen_excluded: int
+    screen_excluded_by_reason: Dict[str, int]
+    eligibility_assessed: int
+    eligibility_excluded: int
+    eligibility_excluded_by_reason: Dict[str, int]
+    total_included: int
+    recent_audit_log: List[ScreeningAuditItemResponse]
+

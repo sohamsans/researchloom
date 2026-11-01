@@ -126,6 +126,23 @@ async def init_db():
                         updated_at DATETIME
                     )
                 """))
+
+                # Ensure screening_audit_log exists for PRISMA tracking
+                sync_conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS screening_audit_log (
+                        id VARCHAR(36) PRIMARY KEY,
+                        workspace_id VARCHAR(64) DEFAULT 'default_workspace',
+                        paper_id VARCHAR(128) NOT NULL,
+                        paper_title VARCHAR(500) NOT NULL,
+                        paper_doi VARCHAR(255) NULL,
+                        action VARCHAR(20) NOT NULL,
+                        exclusion_reason VARCHAR(100) NULL,
+                        stage VARCHAR(30) DEFAULT 'screening',
+                        reviewer_id VARCHAR(100) DEFAULT 'primary_reviewer',
+                        notes TEXT NULL,
+                        created_at DATETIME
+                    )
+                """))
             except Exception as e:
                 print(f"[DB Auto-Migration Warning] {e}")
 

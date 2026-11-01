@@ -21,6 +21,7 @@ import { WritingStudio } from './components/writer/WritingStudio';
 import { FlowMapCanvas } from './components/flowmap/FlowMapCanvas';
 import { DataSheetStudio } from './components/DataSheetStudio';
 import { EvidenceMatrixStudio } from './components/matrix/EvidenceMatrixStudio';
+import { PRISMAFlowDiagram } from './components/screening/PRISMAFlowDiagram';
 import { SkillSynthesizerModal } from './components/SkillSynthesizerModal';
 import { TabletBridgeModal } from './components/TabletBridgeModal';
 import { PdfViewerModal } from './components/PdfViewerModal';
@@ -51,7 +52,7 @@ const MainLayout: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [stage, setStage] = useState<PipelineStage>('idle');
   const [viewMode, setViewMode] = useState<'matrix' | 'chat'>('matrix');
-  const [mainTab, setMainTab] = useState<'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'matrix' | 'formulas' | 'stats'>('research');
+  const [mainTab, setMainTab] = useState<'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'matrix' | 'screening' | 'formulas' | 'stats'>('research');
 
   // Modals
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
@@ -709,6 +710,17 @@ const MainLayout: React.FC = () => {
 
         <div className={mainTab === 'stats' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
           <StatisticsStudio />
+        </div>
+
+        <div className={mainTab === 'screening' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+          <PRISMAFlowDiagram
+            papers={discoveredPapers}
+            onOpenPdf={(paperId, title) => {
+              setViewerVaultId(paperId);
+              setViewerTitle(title);
+              setIsViewerOpen(true);
+            }}
+          />
         </div>
 
         <div className={mainTab === 'matrix' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>

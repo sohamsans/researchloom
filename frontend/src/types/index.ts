@@ -313,3 +313,44 @@ export interface MatrixFullDataResponse {
   cells: MatrixCellData[];
 }
 
+// ----------------- PRISMA 2020 Systematic Screening Types -----------------
+
+export interface ScreeningDecisionRequest {
+  workspace_id?: string;
+  paper_id: string;
+  paper_title: string;
+  paper_doi?: string;
+  action: 'included' | 'excluded' | 'maybe';
+  exclusion_reason?: string;
+  stage?: 'identification' | 'screening' | 'eligibility' | 'included';
+  reviewer_id?: string;
+  notes?: string;
+}
+
+export interface ScreeningAuditItem {
+  id: string;
+  workspace_id: string;
+  paper_id: string;
+  paper_title: string;
+  paper_doi?: string;
+  action: 'included' | 'excluded' | 'maybe';
+  exclusion_reason?: string;
+  stage: string;
+  reviewer_id: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface PRISMAStatsResponse {
+  total_identified: number;
+  duplicates_removed: number;
+  total_screened: number;
+  screen_excluded: number;
+  screen_excluded_by_reason: Record<string, number>;
+  eligibility_assessed: number;
+  eligibility_excluded: number;
+  eligibility_excluded_by_reason: Record<string, number>;
+  total_included: number;
+  recent_audit_log: ScreeningAuditItem[];
+}
+

@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import review, export, assistant, auth, vault, references, notes, flow, tablet, stats, calc, matrix
+from app.routers import review, export, assistant, auth, vault, references, notes, flow, tablet, stats, calc, matrix, screening
 from app.db.database import init_db
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ app.include_router(tablet.router)
 app.include_router(stats.router)
 app.include_router(calc.router)
 app.include_router(matrix.router)
+app.include_router(screening.router)
 
 TABLET_PAD_HTML = """<!DOCTYPE html>
 <html lang="en">

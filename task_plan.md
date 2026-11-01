@@ -1,12 +1,12 @@
 # Task Plan: Research Loom Production Implementation
 
-- [ ] Phase 1: Automated Evidence Extraction Matrix & Click-to-Source Verification <!-- id: 0 -->
-  - [ ] 1.1 Backend Models & Schema (`backend/app/models/matrix.py`, `backend/app/models/schemas.py`) <!-- id: 1 -->
-  - [ ] 1.2 Layout-Aware Table Extraction & Extraction Service (`backend/app/services/matrix_service.py`) <!-- id: 2 -->
-  - [ ] 1.3 FastAPI REST Endpoints for Dynamic Matrix (`backend/app/routers/matrix.py`) <!-- id: 3 -->
-  - [ ] 1.4 Frontend Dynamic Column Builder & Matrix UI (`frontend/src/components/matrix/EvidenceMatrixStudio.tsx`) <!-- id: 4 -->
-  - [ ] 1.5 Click-to-Source PDF Bounding Box Viewer Integration (`frontend/src/components/PdfViewerModal.tsx`) <!-- id: 5 -->
-  - [ ] 1.6 Verification & Matrix Test Suite <!-- id: 6 -->
+- [x] Phase 1: Automated Evidence Extraction Matrix & Click-to-Source Verification <!-- id: 0 -->
+  - [x] 1.1 Backend Models & Schema (`backend/app/models/matrix.py`, `backend/app/models/schemas.py`) <!-- id: 1 -->
+  - [x] 1.2 Layout-Aware Table Extraction & Extraction Service (`backend/app/services/matrix_service.py`) <!-- id: 2 -->
+  - [x] 1.3 FastAPI REST Endpoints for Dynamic Matrix (`backend/app/routers/matrix.py`) <!-- id: 3 -->
+  - [x] 1.4 Frontend Dynamic Column Builder & Matrix UI (`frontend/src/components/matrix/EvidenceMatrixStudio.tsx`) <!-- id: 4 -->
+  - [x] 1.5 Click-to-Source PDF Bounding Box Viewer Integration (`frontend/src/components/PdfViewerModal.tsx`) <!-- id: 5 -->
+  - [x] 1.6 Verification & Matrix Test Suite <!-- id: 6 -->
 
 - [ ] Phase 2: Systematic Screening & PRISMA 2020 Workflow <!-- id: 7 -->
   - [ ] 2.1 Screening Audit Database & Endpoints (`backend/app/routers/screening.py`) <!-- id: 8 -->
