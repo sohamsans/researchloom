@@ -48,7 +48,12 @@ backend/.env
 .gemini/
 GEMINI.md
 PROJECT_MEMORY.md
+task.md
+task_plan.md
+tasks.md
 plan_*.md
+findings.md
+progress.md
 *.spec
 
 # Deployment mirror folder
