@@ -386,6 +386,43 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     setIsCanvasDropdownOpen(false);
   };
 
+  const handleDeleteCanvas = async (e: React.MouseEvent, canvasId: string) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this flow map canvas? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/flow/canvases/${canvasId}`, {
+        method: 'DELETE'
+      });
+      if (resp.ok) {
+        const remaining = canvases.filter((c) => c.id !== canvasId);
+        setCanvases(remaining);
+
+        if (activeCanvasId === canvasId) {
+          if (remaining.length > 0) {
+            handleSwitchCanvas(remaining[0]);
+          } else {
+            // No canvases left: reset to clean default session
+            setActiveCanvasId('default_canvas');
+            setActiveCanvasTitle('Literature Flow Map');
+            setNodes([]);
+            setEdges([]);
+            setPan({ x: 0, y: 0 });
+            setZoom(1);
+            localStorage.removeItem('litbuddy_flowmap_active_session');
+          }
+        }
+      } else {
+        alert('Failed to delete canvas from server.');
+      }
+    } catch (err: any) {
+      console.warn('Error deleting canvas:', err);
+      alert('Network error while deleting canvas.');
+    }
+  };
+
   // Trackpad Pinch-to-Zoom & Anchor Zoom Gesture Handler
   useEffect(() => {
     const el = containerRef.current;
@@ -929,17 +966,26 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
                 <div className="text-[10px] uppercase font-bold text-zinc-500 px-2 py-1">Saved Flow Maps</div>
                 <div className="max-h-48 overflow-y-auto space-y-1 my-1">
                   {canvases.map((c) => (
-                    <button
+                    <div
                       key={c.id}
-                      type="button"
                       onClick={() => handleSwitchCanvas(c)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors ${
+                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors cursor-pointer group ${
                         c.id === activeCanvasId ? 'bg-zinc-800 text-white font-medium' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                       }`}
                     >
-                      <span className="truncate">{c.title}</span>
-                      {c.id === activeCanvasId && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                    </button>
+                      <span className="truncate flex-1 pr-2">{c.title}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {c.id === activeCanvasId && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteCanvas(e, c.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-950/60 text-zinc-500 hover:text-red-400 rounded-md transition"
+                          title="Delete this Flow Map"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
                 <div className="border-t border-zinc-800 pt-1.5 flex gap-1">
