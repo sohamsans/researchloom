@@ -4,6 +4,14 @@
 
 ---
 
+## Live Walkthrough Demo
+
+![ResearchLoom Feature Walkthrough](docs/demo/researchloom_demo.gif)
+
+> A complete high-resolution MP4 video walkthrough is also available at [`docs/demo/researchloom_demo.mp4`](docs/demo/researchloom_demo.mp4).
+
+---
+
 ## Screenshots & Visual Walkthrough
 
 ### 1. Literature Discovery & Candidate Search
