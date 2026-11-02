@@ -45,6 +45,7 @@ backend/.env
 
 # Agent skills, planning files, and AI metadata (kept private locally)
 .agents/
+.agents/skills/release-management/
 .gemini/
 GEMINI.md
 PROJECT_MEMORY.md
