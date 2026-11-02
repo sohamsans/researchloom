@@ -4,7 +4,22 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "lucide-react"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "frontend"
@@ -13,7 +28,16 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "fastapi"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "sqlalchemy"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "cryptography"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "groq"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "backend"
@@ -22,6 +46,7 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "ci/cd"
