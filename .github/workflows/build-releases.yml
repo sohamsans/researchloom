@@ -165,10 +165,10 @@ jobs:
         run: |
           cd frontend/android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace
           cd ../..
           mkdir -p dist_apk
-          cp frontend/android/app/build/outputs/apk/debug/app-debug.apk dist_apk/ResearchLoom-android-tablet.apk
+          cp frontend/android/app/build/outputs/apk/release/app-release.apk dist_apk/ResearchLoom-android-tablet.apk
 
       - name: Upload Android Tablet APK to Release
         uses: softprops/action-gh-release@v2

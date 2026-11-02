@@ -10,7 +10,9 @@ import {
   Maximize2,
   Trash2,
   Check,
-  ChevronDown
+  ChevronDown,
+  Shapes,
+  Sparkles
 } from 'lucide-react';
 
 interface Point {
@@ -57,6 +59,7 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
   const [showEraserMenu, setShowEraserMenu] = useState(false);
   const [color, setColor] = useState<string>('#38bdf8');
   const [baseSize, setBaseSize] = useState<number>(3);
+  const [autoSnapShapes, setAutoSnapShapes] = useState(false);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [pixelErasePaths, setPixelErasePaths] = useState<Point[][]>([]);
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
@@ -108,10 +111,17 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
         ctx.arc(first.x, first.y, stroke.size / 2, 0, Math.PI * 2);
         ctx.fillStyle = stroke.color;
         ctx.fill();
+      } else if (stroke.points.length === 2) {
+        // Direct clean line (e.g. snapped line)
+        const pt = stroke.points[1];
+        ctx.lineWidth = stroke.size * 1.5;
+        ctx.lineTo(pt.x, pt.y);
+        ctx.stroke();
       } else {
-        for (let i = 1; i < stroke.points.length; i++) {
+        // Catmull-Rom spline smoothed multi-point vector rendering
+        for (let i = 1; i < stroke.points.length - 1; i++) {
           const pt = stroke.points[i];
-          const prev = stroke.points[i - 1];
+          const next = stroke.points[i + 1];
 
           const dynamicWidth = stroke.tool === 'highlighter'
             ? stroke.size * 4.5
@@ -119,10 +129,12 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
 
           ctx.lineWidth = Math.max(1, dynamicWidth);
 
-          const midX = (prev.x + pt.x) / 2;
-          const midY = (prev.y + pt.y) / 2;
-          ctx.quadraticCurveTo(prev.x, prev.y, midX, midY);
+          const midX = (pt.x + next.x) / 2;
+          const midY = (pt.y + next.y) / 2;
+          ctx.quadraticCurveTo(pt.x, pt.y, midX, midY);
         }
+        const last = stroke.points[stroke.points.length - 1];
+        ctx.lineTo(last.x, last.y);
         ctx.stroke();
       }
       ctx.restore();
@@ -215,22 +227,158 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
   // Xiaomi Smart Pen / S-Pen / USI Hardware Pointer Events
   const activePointerIdRef = useRef<number | null>(null);
 
-  // Keyboard shortcut listener for Xiaomi Smart Pen 2 secondary button (mapped by Xiaomi to PageDown / VolumeDown / Keycode)
+  // Cycle active tools sequentially with hardware stylus button: Pen -> Highlight -> Stroke Eraser -> Pixel Eraser -> Pen
+  const cycleStylusTool = useCallback(() => {
+    if (activeTool === 'pen') {
+      setActiveTool('highlighter');
+      showNotification('Stylus Button: Switched to Highlighter');
+    } else if (activeTool === 'highlighter') {
+      setActiveTool('eraser');
+      setEraserMode('stroke');
+      showNotification('Stylus Button: Switched to Stroke Eraser');
+    } else if (activeTool === 'eraser' && eraserMode === 'stroke') {
+      setActiveTool('eraser');
+      setEraserMode('pixel');
+      showNotification('Stylus Button: Switched to Pixel Eraser');
+    } else {
+      setActiveTool('pen');
+      showNotification('Stylus Button: Switched to Pressure Pen');
+    }
+  }, [activeTool, eraserMode]);
+
+  // Geometric Shape Recognition Algorithm (Circle, Ellipse, Rectangle, Triangle, Line)
+  const detectGeometricShape = (pts: Point[]): Point[] | null => {
+    if (pts.length < 8) return null;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    pts.forEach((p) => {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    });
+
+    const w = maxX - minX;
+    const h = maxY - minY;
+    if (w < 15 && h < 15) return null;
+
+    const startP = pts[0];
+    const endP = pts[pts.length - 1];
+    const closureDist = Math.hypot(endP.x - startP.x, endP.y - startP.y);
+    const maxDim = Math.max(w, h);
+
+    // Compute total path perimeter length
+    let pathLength = 0;
+    for (let i = 1; i < pts.length; i++) {
+      pathLength += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    }
+
+    // Straight Line Test: Start-to-end direct distance is >= 90% of total drawn stroke
+    const directDist = Math.hypot(endP.x - startP.x, endP.y - startP.y);
+    if (directDist / (pathLength || 1) >= 0.90 && directDist > 40) {
+      return [
+        { x: startP.x, y: startP.y, pressure: startP.pressure },
+        { x: endP.x, y: endP.y, pressure: endP.pressure }
+      ];
+    }
+
+    // Closed loop checks
+    const isClosed = closureDist < maxDim * 0.32;
+    if (!isClosed) return null;
+
+    // Shoelace area
+    let polygonArea = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      polygonArea += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+    }
+    polygonArea = Math.abs(polygonArea / 2);
+
+    // Circularity (Isoperimetric Quotient: 4 * PI * Area / Perimeter^2)
+    const circularity = (4 * Math.PI * polygonArea) / (pathLength * pathLength || 1);
+
+    // 1. Circle / Ellipse Detection
+    if (circularity > 0.70) {
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const rx = w / 2;
+      const ry = h / 2;
+      const circlePts: Point[] = [];
+      const steps = 40;
+      for (let i = 0; i <= steps; i++) {
+        const theta = (i / steps) * 2 * Math.PI;
+        circlePts.push({
+          x: cx + rx * Math.cos(theta),
+          y: cy + ry * Math.sin(theta),
+          pressure: 0.5
+        });
+      }
+      return circlePts;
+    }
+
+    // 2. Corner detection for Triangle vs Rectangle
+    const step = Math.max(1, Math.floor(pts.length / 24));
+    const downsampled: Point[] = [];
+    for (let i = 0; i < pts.length; i += step) {
+      downsampled.push(pts[i]);
+    }
+
+    let cornerCount = 0;
+    for (let i = 1; i < downsampled.length - 1; i++) {
+      const p1 = downsampled[i - 1];
+      const p2 = downsampled[i];
+      const p3 = downsampled[i + 1];
+
+      const a1 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      const a2 = Math.atan2(p3.y - p2.y, p3.x - p2.x);
+      let diff = Math.abs(((a2 - a1) * 180) / Math.PI);
+      if (diff > 180) diff = 360 - diff;
+
+      if (diff > 38) {
+        cornerCount++;
+        i += 2; // skip immediate neighbours
+      }
+    }
+
+    const bboxArea = w * h;
+    const fillRatio = bboxArea > 0 ? polygonArea / bboxArea : 0;
+
+    // 3. Rectangle / Square Detection
+    if ((cornerCount >= 3 && cornerCount <= 6) || fillRatio > 0.70) {
+      return [
+        { x: minX, y: minY, pressure: 0.5 },
+        { x: maxX, y: minY, pressure: 0.5 },
+        { x: maxX, y: maxY, pressure: 0.5 },
+        { x: minX, y: maxY, pressure: 0.5 },
+        { x: minX, y: minY, pressure: 0.5 }
+      ];
+    }
+
+    // 4. Triangle Detection
+    if (cornerCount >= 2 && cornerCount <= 4 && fillRatio < 0.65) {
+      return [
+        { x: (minX + maxX) / 2, y: minY, pressure: 0.5 },
+        { x: maxX, y: maxY, pressure: 0.5 },
+        { x: minX, y: maxY, pressure: 0.5 },
+        { x: (minX + maxX) / 2, y: minY, pressure: 0.5 }
+      ];
+    }
+
+    return null;
+  };
   // Also listen for native Android bridge custom event 'xiaomi_stylus_button' and expose global window.handleStylusButton
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'PageDown' || e.key === 'PageUp' || e.code === 'KeyE') {
         e.preventDefault();
-        setActiveTool((prev) => (prev === 'eraser' ? 'pen' : 'eraser'));
-        showNotification('Xiaomi Pen Button: Toggled Eraser');
+        cycleStylusTool();
       }
     };
 
     const handleCustomStylus = (e: any) => {
       const action = e.detail?.action;
       if (action === 'PageUp' || action === 'PageDown' || action === 'StylusPrimaryPress') {
-        setActiveTool((prev) => (prev === 'eraser' ? 'pen' : 'eraser'));
-        showNotification('Xiaomi Smart Pen Button: Toggled Eraser');
+        cycleStylusTool();
       } else if (action === 'StylusSecondaryPress') {
         setEraserMode((prev) => (prev === 'stroke' ? 'pixel' : 'stroke'));
         showNotification('Xiaomi Smart Pen: Switched Eraser Mode');
@@ -240,8 +388,7 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
     // Attach to window for Android WebView evaluateJavascript bridge
     (window as any).handleStylusButton = (action: string) => {
       if (action === 'PageUp' || action === 'PageDown' || action === 'StylusPrimaryPress') {
-        setActiveTool((prev) => (prev === 'eraser' ? 'pen' : 'eraser'));
-        showNotification('Xiaomi Smart Pen Button: Toggled Eraser');
+        cycleStylusTool();
       } else if (action === 'StylusSecondaryPress') {
         setEraserMode((prev) => (prev === 'stroke' ? 'pixel' : 'stroke'));
         showNotification('Xiaomi Smart Pen: Switched Eraser Mode');
@@ -255,7 +402,7 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
       window.removeEventListener('xiaomi_stylus_button', handleCustomStylus);
       delete (window as any).handleStylusButton;
     };
-  }, []);
+  }, [cycleStylusTool]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     // Palm Rejection: If an active stylus pen is active, reject multi-touch finger inputs
@@ -343,7 +490,21 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
       } catch {}
 
       if (currentStroke && currentStroke.points.length > 0) {
-        setStrokes((prev) => [...prev, currentStroke]);
+        let finalStroke = currentStroke;
+
+        // If Shape Recognition is active, attempt to snap the stroke to a clean geometric shape
+        if (autoSnapShapes && currentStroke.tool === 'pen') {
+          const snappedPoints = detectGeometricShape(currentStroke.points);
+          if (snappedPoints) {
+            finalStroke = {
+              ...currentStroke,
+              points: snappedPoints
+            };
+            showNotification('Snapped to Geometric Shape');
+          }
+        }
+
+        setStrokes((prev) => [...prev, finalStroke]);
       }
       setCurrentStroke(null);
 
@@ -493,6 +654,21 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Shape Recognition Auto-Snap Button */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextState = !autoSnapShapes;
+                setAutoSnapShapes(nextState);
+                showNotification(nextState ? 'Auto-Snap Shapes Enabled' : 'Auto-Snap Shapes Disabled');
+              }}
+              className={`px-1.5 sm:px-2 py-1 rounded-lg text-xs flex items-center gap-1 transition ${autoSnapShapes ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-semibold' : 'text-zinc-400 hover:text-zinc-200'}`}
+              title="Auto-Snap hand-drawn strokes into clean geometric shapes (circles, squares, triangles, lines)"
+            >
+              <Shapes className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden md:inline">Snap</span>
+            </button>
           </div>
 
           {/* Color Palette */}

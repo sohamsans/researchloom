@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  PenTool,
+  FileEdit,
   FileText,
   FileCode,
   Plus,
@@ -436,8 +436,8 @@ code { background-color: #f3f4f6; padding: 2px 4px; border-radius: 4px; font-fam
         {/* Sidebar Header */}
         <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-zinc-800 text-zinc-200">
-              <PenTool className="w-4 h-4" />
+            <div className="p-1.5 rounded-lg bg-zinc-800 text-sky-400">
+              <FileEdit className="w-4 h-4" />
             </div>
             <h2 className="text-xs font-semibold text-zinc-200">Writing Studio</h2>
           </div>
@@ -606,7 +606,7 @@ code { background-color: #f3f4f6; padding: 2px 4px; border-radius: 4px; font-fam
           )
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-500">
-            <PenTool className="w-12 h-12 mb-3 opacity-30" />
+            <FileEdit className="w-12 h-12 mb-3 opacity-30 text-sky-400" />
             <h3 className="text-sm font-semibold text-zinc-300 mb-1">Select or Create a Manuscript</h3>
             <p className="text-xs text-zinc-500 max-w-sm mb-4">
               Draft academic synthesis notes in rich markdown or full Overleaf-grade LaTeX with live KaTeX preview.

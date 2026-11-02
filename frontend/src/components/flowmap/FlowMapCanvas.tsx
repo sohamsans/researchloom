@@ -819,8 +819,16 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     }
   };
 
-  // Node Dragging Physics and Trail Mode Handling
-  const handleNodeMouseDown = (e: React.MouseEvent, node: FlowNode) => {
+  // Node Dragging Physics and Trail Mode Handling with Touch/Pointer support
+  const activeDragPointerIdRef = useRef<number | null>(null);
+
+  const handleNodePointerDown = (e: React.PointerEvent, node: FlowNode) => {
+    // Avoid interfering if user is clicking an input/textarea inside a note
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('button')) {
+      return;
+    }
+
     e.stopPropagation();
 
     // If connecting trail mode is active
@@ -849,12 +857,27 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
       return;
     }
 
-    // Only start dragging — DO NOT open sidebar on single click!
+    // Capture pointer for consistent drag across tablets and desktop
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      activeDragPointerIdRef.current = e.pointerId;
+    } catch {}
+
     setDraggingNodeId(node.id);
     setNodeDragOffset({
       x: e.clientX / zoom - node.x,
       y: e.clientY / zoom - node.y
     });
+  };
+
+  const handleNodePointerUp = (e: React.PointerEvent) => {
+    if (activeDragPointerIdRef.current === e.pointerId) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      activeDragPointerIdRef.current = null;
+    }
+    setDraggingNodeId(null);
   };
 
   // Node Double Click Handler: Exclusively opens the side details drawer
@@ -863,8 +886,13 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     setSelectedNodeId(node.id);
   };
 
-  // Canvas Panning
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+  // Canvas Panning with Touch & Pointer Support
+  const activeCanvasPointerIdRef = useRef<number | null>(null);
+  const touchPointsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(zoom);
+
+  const handleCanvasPointerDown = (e: React.PointerEvent) => {
     if (contextMenu.visible) {
       setContextMenu({ visible: false, x: 0, y: 0, targetNode: null });
     }
@@ -873,10 +901,89 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     if (target.closest('.antigravity-drawer, .antigravity-glass, button, input, select, textarea, [data-interactive="true"]')) {
       return;
     }
-    if (e.button !== 0) return; // Only left click pans
+
+    // Multi-touch tracking for pinch-to-zoom
+    touchPointsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (touchPointsRef.current.size === 2) {
+      // Begin 2-finger pinch
+      const pts = Array.from(touchPointsRef.current.values());
+      pinchStartDistRef.current = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      pinchStartZoomRef.current = zoom;
+      setIsPanning(false);
+      return;
+    }
+
+    if (e.button !== 0 && e.pointerType === 'mouse') return; // Only left click pans on mouse
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      activeCanvasPointerIdRef.current = e.pointerId;
+    } catch {}
+
     setIsPanning(true);
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     setSelectedNodeId(null);
+  };
+
+  const handleCanvasPointerMove = (e: React.PointerEvent) => {
+    // Update tracked point
+    if (touchPointsRef.current.has(e.pointerId)) {
+      touchPointsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    // 2-Finger Pinch Zoom on Tablets
+    if (touchPointsRef.current.size === 2 && pinchStartDistRef.current) {
+      const pts = Array.from(touchPointsRef.current.values());
+      const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const factor = currentDist / pinchStartDistRef.current;
+      const newZoom = Math.min(2.5, Math.max(0.2, pinchStartZoomRef.current * factor));
+      setZoom(newZoom);
+      return;
+    }
+
+    if (isPanning) {
+      setPan({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    } else if (draggingNodeId) {
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+
+      if (dragRafRef.current) {
+        cancelAnimationFrame(dragRafRef.current);
+      }
+
+      dragRafRef.current = requestAnimationFrame(() => {
+        const newX = clientX / zoom - nodeDragOffset.x;
+        const newY = clientY / zoom - nodeDragOffset.y;
+        setNodes((prev) =>
+          prev.map((n) => (n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n))
+        );
+      });
+    }
+  };
+
+  const handleCanvasPointerUp = (e: React.PointerEvent) => {
+    touchPointsRef.current.delete(e.pointerId);
+    if (touchPointsRef.current.size < 2) {
+      pinchStartDistRef.current = null;
+    }
+
+    if (activeCanvasPointerIdRef.current === e.pointerId) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      activeCanvasPointerIdRef.current = null;
+    }
+
+    if (dragRafRef.current) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+    setIsPanning(false);
+    setDraggingNodeId(null);
   };
 
   // Canvas Right-Click Handler
@@ -1015,10 +1122,11 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
 
   return (
     <div
-      className="relative w-full h-[calc(100vh-3.5rem)] bg-[#07080a] overflow-hidden select-none"
-      onMouseDown={handleCanvasMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      className="relative w-full h-[calc(100vh-3.5rem)] bg-[#07080a] overflow-hidden select-none touch-none"
+      onPointerDown={handleCanvasPointerDown}
+      onPointerMove={handleCanvasPointerMove}
+      onPointerUp={handleCanvasPointerUp}
+      onPointerCancel={handleCanvasPointerUp}
       onContextMenu={handleCanvasContextMenu}
       ref={containerRef}
     >
@@ -1334,10 +1442,12 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
             return (
               <div
                 key={node.id}
-                onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                onPointerDown={(e) => handleNodePointerDown(e, node)}
+                onPointerUp={handleNodePointerUp}
+                onPointerCancel={handleNodePointerUp}
                 onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
                 onContextMenu={(e) => handleNodeContextMenu(e, node)}
-                className={`absolute w-72 rounded-2xl antigravity-card p-3.5 cursor-grab active:cursor-grabbing ${colorTheme.border} ${colorTheme.bg} ${
+                className={`absolute w-72 rounded-2xl antigravity-card p-3.5 cursor-grab active:cursor-grabbing touch-none ${colorTheme.border} ${colorTheme.bg} ${
                   draggingNodeId === node.id ? '' : 'transition-all'
                 } ${
                   isSelected ? 'ring-2 ring-zinc-400' : ''
@@ -1433,10 +1543,12 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
             return (
               <div
                 key={node.id}
-                onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                onPointerDown={(e) => handleNodePointerDown(e, node)}
+                onPointerUp={handleNodePointerUp}
+                onPointerCancel={handleNodePointerUp}
                 onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
                 onContextMenu={(e) => handleNodeContextMenu(e, node)}
-                className={`absolute w-80 rounded-2xl antigravity-glass p-3.5 cursor-grab active:cursor-grabbing ${
+                className={`absolute w-80 rounded-2xl antigravity-glass p-3.5 cursor-grab active:cursor-grabbing touch-none ${
                   draggingNodeId === node.id ? '' : 'transition-all'
                 } ${
                   isSelected ? 'ring-2 ring-zinc-400' : 'hover:border-zinc-600'
@@ -1512,10 +1624,12 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
           return (
             <div
               key={node.id}
-              onMouseDown={(e) => handleNodeMouseDown(e, node)}
+              onPointerDown={(e) => handleNodePointerDown(e, node)}
+              onPointerUp={handleNodePointerUp}
+              onPointerCancel={handleNodePointerUp}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
               onContextMenu={(e) => handleNodeContextMenu(e, node)}
-              className={`absolute w-72 rounded-xl antigravity-card p-3 cursor-grab active:cursor-grabbing ${
+              className={`absolute w-72 rounded-xl antigravity-card p-3 cursor-grab active:cursor-grabbing touch-none ${
                 draggingNodeId === node.id ? '' : 'transition-all'
               } ${
                 isSelected ? 'ring-2 ring-zinc-400' : ''

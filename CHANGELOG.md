@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.3.5] - 2026-11-03
+
+### Added
+- **Visual Identity Separation (Writing Studio vs Stylus Studio)**:
+  - Updated Writing Studio navigation across sidebars and headers to use the dedicated document authoring icon (`FileEdit`). Stylus Studio cleanly retains the precision pen icon (`PenTool`).
+- **Touch & Tablet Multi-Touch Support in Flow Maps (`FlowMapCanvas.tsx`)**:
+  - Migrated node card dragging (Papers, Folders, Sticky Notes) and canvas panning to W3C Pointer Events (`onPointerDown`, `setPointerCapture`, `touch-none`).
+  - Added native multi-touch 2-finger pinch-to-zoom and canvas panning on tablets without drag cancellation or gesture conflicts.
+- **Stylus Engine Smoothing & Geometric Shape Auto-Snap (`StylusStudio.tsx`)**:
+  - **Catmull-Rom Smoothing**: Vector paths smoothed through multi-point bezier curves, eliminating digitizer noise.
+  - **Geometric Shape Recognition**: Toggleable "Snap" feature recognizing hand-drawn circles, ellipses, rectangles, triangles, and straight lines via isoperimetric quotient and corner detection.
+  - **Hardware Button Tool Cycling**: Single-clicking physical stylus barrel buttons (Xiaomi Smart Pen, S-Pen) sequentially cycles tools (`Pen` $\to$ `Highlighter` $\to$ `Stroke Eraser` $\to$ `Pixel Eraser` $\to$ `Pen`).
+- **OEM Shortcut Neutralization in `MainActivity.java`**:
+  - Intercepted and consumed Xiaomi HyperOS / MIUI stylus button signals (`KEYCODE_PAGE_UP`, `KEYCODE_PAGE_DOWN`, `BUTTON_STYLUS_PRIMARY`, `BUTTON_STYLUS_SECONDARY`), preventing unwanted launches of Xiaomi Notes or the partial screenshot editor while sketching in ResearchLoom. Standard system 3-finger swipe screenshots remain intact.
+- **Permanent Keystore & In-Place APK Upgrades**:
+  - Added dedicated `researchloom-release.keystore` signing configuration for both `debug` and `release` Gradle builds with V1 + V2 signing enabled, preventing `INSTALL_FAILED_UPDATE_INCOMPATIBLE` signature mismatch errors when updating APKs.
+  - Added `android:hasFragileUserData="true"` in `AndroidManifest.xml` to prompt users to retain local databases and paper vaults upon uninstallation.
+  - Upgraded Android adaptive launcher icons with ResearchLoom's signature Obsidian Silver architectural book folio.
+
+---
+
 ## [v4.3.4] - 2026-11-02
 
 ### Added
