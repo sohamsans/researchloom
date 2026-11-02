@@ -19,7 +19,9 @@ import {
   History,
   RotateCcw,
   Github,
-  ExternalLink
+  ExternalLink,
+  PanelLeftOpen,
+  PanelLeftClose
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { HealthStatus } from '../types';
@@ -38,6 +40,8 @@ interface HeaderProps {
   onOpenTabletBridge?: () => void;
   onOpenRollback?: () => void;
   lastAutosave?: Date;
+  onToggleSidebar?: () => void;
+  isSidebarOpen?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,7 +53,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSkills,
   onOpenTabletBridge,
   onOpenRollback,
-  lastAutosave
+  lastAutosave,
+  onToggleSidebar,
+  isSidebarOpen
 }) => {
   const { user, offlineProfile, openAuthModal, openKeyModal, saveBYOKKeys } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = React.useState(false);
@@ -57,33 +63,45 @@ export const Header: React.FC<HeaderProps> = ({
   const hasConfiguredKeys = user && Object.values(user.configured_keys || {}).some(v => !!v);
 
   return (
-    <header className="h-14 px-4 sm:px-6 flex items-center justify-between border-b border-white/5 z-30 transition-colors bg-[#07080a]/95 backdrop-blur-xl">
-      {/* Left Active Context Title (Restrained & Minimalist) */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-zinc-100 capitalize">
+    <header className="h-14 px-2 sm:px-4 md:px-6 flex items-center justify-between border-b border-white/5 z-30 transition-colors bg-[#07080a]/95 backdrop-blur-xl gap-2">
+      {/* Left Active Context Title & Sidebar Toggle (Restrained & Minimalist) */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 transition cursor-pointer shrink-0"
+            title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+          </button>
+        )}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <span className="text-xs font-semibold text-zinc-100 capitalize truncate max-w-[130px] sm:max-w-[200px] md:max-w-xs">
             {activeTab === 'research' ? 'Literature Research' :
-             activeTab === 'studio' ? 'Writing & LaTeX Studio' :
-             activeTab === 'stylus' ? 'Stylus Studio & Scratchpad' :
-             activeTab === 'flow' ? 'Interactive Flow Maps' :
-             activeTab === 'formulas' ? 'Scientific Formula Blocks' :
-             activeTab === 'stats' ? 'Statistical Computing' :
-             activeTab === 'sheets' ? 'Project Data Sheets' :
-             activeTab === 'references' ? 'Master Reference Manager' :
-             activeTab === 'downloads' ? 'Local Vault Downloads' : activeTab}
+             activeTab === 'studio' ? 'Writing Studio' :
+             activeTab === 'stylus' ? 'Stylus Studio' :
+             activeTab === 'flow' ? 'Flow Maps' :
+             activeTab === 'formulas' ? 'Formula Blocks' :
+             activeTab === 'stats' ? 'Statistics' :
+             activeTab === 'sheets' ? 'Data Sheets' :
+             activeTab === 'references' ? 'References' :
+             activeTab === 'downloads' ? 'Downloads' : activeTab}
           </span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/60 hidden sm:inline">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/60 hidden 2xl:inline shrink-0">
             Offline Mode
           </span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 hidden md:inline">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 hidden 2xl:inline shrink-0">
             {offlineProfile?.app_identity === 'samhita' ? 'Samhita' : 'ResearchLoom'}
           </span>
         </div>
       </div>
 
       {/* Right Controls: Focus Music Dock, Skills, Tutorial, BYOK, User */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <MusicFocusBar />
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="hidden sm:block">
+          <MusicFocusBar />
+        </div>
 
         {/* AI Skills Synthesizer Button */}
         {onOpenSkills && (
@@ -114,11 +132,11 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenRollback}
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
+            className="hidden xl:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
             title="Continuous Autosave & Snapshot Rollback (Click to restore past work)"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[11px] font-mono text-zinc-400 hidden md:inline">Autosaved</span>
+            <span className="text-[11px] font-mono text-zinc-400 hidden 2xl:inline">Autosaved</span>
             <History className="w-3.5 h-3.5 text-zinc-400" />
           </button>
         )}
@@ -128,11 +146,11 @@ export const Header: React.FC<HeaderProps> = ({
           href="https://github.com/sohamsans/researchloom/issues"
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
+          className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs"
           title="GitHub Repo & Issue Tracker — Report bugs with screenshots!"
         >
           <Github className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="hidden xl:inline">Report Issue</span>
+          <span className="hidden 2xl:inline">Report Issue</span>
           <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
             Beta
           </span>
@@ -145,11 +163,11 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={openKeyModal}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-200 shadow-xs transition-all cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/70 text-xs font-medium text-zinc-200 shadow-xs transition-all cursor-pointer"
         >
           <Key className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="hidden sm:inline">BYOK Keys</span>
-          <span className="sm:hidden">Keys</span>
+          <span className="hidden lg:inline">BYOK Keys</span>
+          <span className="lg:hidden">Keys</span>
           {hasConfiguredKeys && (
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Keys encrypted" />
           )}

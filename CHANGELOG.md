@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.3.4] - 2026-11-02
+
+### Added
+- **Dual Eraser Engine (Stroke Eraser & Pixel Eraser)**:
+  - **Stroke Eraser**: High-precision vector line intersection calculation via segment distance algorithms (`distToSegment`), allowing researchers to delete entire intersected strokes in one touch.
+  - **Pixel Eraser**: Raster canvas erasure using `destination-out` composite operation, enabling pixel-perfect partial erasing and fine-tuned formula cleanup.
+  - Interactive eraser menu with live mode switching and status notifications.
+- **Xiaomi Smart Pen & Native Stylus Hardware Button Scheme**:
+  - Full support for Xiaomi Smart Pen 2 and Focus Pen (Xiaomi Pad 7 / Pad 6 series) proprietary hardware button schemes:
+    - Native `dispatchKeyEvent` interception in `MainActivity.java` capturing `KEYCODE_PAGE_UP` (92) and `KEYCODE_PAGE_DOWN` (93), bridging directly to web canvas without scrolling interference.
+    - Native `dispatchGenericMotionEvent` capturing `BUTTON_STYLUS_PRIMARY` and `BUTTON_STYLUS_SECONDARY` events.
+    - Global web bridge (`window.handleStylusButton` and `xiaomi_stylus_button` custom event) seamlessly toggling eraser or switching eraser modes.
+    - Physical barrel button hold detection (`e.button === 2 || e.buttons & 2`) for temporary eraser activation while sketching.
+- **Dynamic Responsive Scaling Across All Tablet Form Factors & Orientations**:
+  - Responsive layout scaling supporting Xiaomi Pad 7 (3:2 aspect ratio, 2880×1800), Samsung Galaxy Tab (16:10), and iPad (4:3) in both landscape and portrait orientations.
+  - Fixed horizontal UI header and toolbar clipping:
+    - Auto-collapses sidebar on viewports `< 1280px` (with persistent quick-toggle button in the header).
+    - Reduced sidebar margin from fixed `ml-16` to `ml-0` on mobile/tablets when collapsed, preventing canvas clipping.
+    - Made header and stylus toolbars fully flexible and responsive with prioritized breakpoints.
+
+---
+
 ## [v4.3.3] - 2026-11-02
 
 ### Added

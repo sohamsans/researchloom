@@ -51,7 +51,25 @@ import { useNativeDialog } from './context/NativeDialogContext';
 const MainLayout: React.FC = () => {
   const { showAlert, showConfirm, showToast } = useNativeDialog();
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Auto-collapse sidebar by default on tablet / mobile screens so workspaces have full width
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    return typeof window !== 'undefined' ? window.innerWidth >= 1280 : false;
+  });
+
+  // Dynamically adapt layout to tablet orientation and screen size changes (e.g. Xiaomi Pad 7 3:2 rotation)
+  useEffect(() => {
+    const handleViewportChange = () => {
+      if (window.innerWidth < 1280) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('orientationchange', handleViewportChange);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('orientationchange', handleViewportChange);
+    };
+  }, []);
   const [isSourcesSidebarOpen, setIsSourcesSidebarOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [stage, setStage] = useState<PipelineStage>('idle');
@@ -630,7 +648,7 @@ const MainLayout: React.FC = () => {
       {/* 2. Center Workspace Area */}
       <div
         className={`flex-1 flex flex-col transition-all duration-300 min-w-0 ${
-          isSidebarOpen ? 'ml-64' : 'ml-16'
+          isSidebarOpen ? 'ml-64' : 'ml-0 md:ml-16'
         } ${isSourcesSidebarOpen ? 'mr-80 md:mr-96' : ''}`}
       >
         <Header
@@ -643,6 +661,8 @@ const MainLayout: React.FC = () => {
           onOpenTabletBridge={() => setIsTabletModalOpen(true)}
           onOpenRollback={() => setIsRollbackOpen(true)}
           lastAutosave={lastAutosaveTime}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          isSidebarOpen={isSidebarOpen}
         />
 
         {/* Persistent Tab Containers: never unmount to preserve flowmaps, formulas, and studio state */}
