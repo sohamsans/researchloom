@@ -30,7 +30,7 @@ import { api } from '../services/api';
 import { SavedSearchItem } from '../types';
 import { LitBuddyLogo } from './LitBuddyLogo';
 
-export type MainTabType = 'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'matrix' | 'screening' | 'formulas' | 'stats';
+export type MainTabType = 'research' | 'screening' | 'matrix' | 'studio' | 'stylus' | 'flow' | 'formulas' | 'stats' | 'sheets' | 'references' | 'downloads';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -159,6 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'screening', label: 'PRISMA Screening', icon: Filter },
     { id: 'matrix', label: 'Evidence Matrix', icon: Table },
     { id: 'studio', label: 'Writing Studio', icon: PenTool },
+    { id: 'stylus', label: 'Stylus Studio', icon: PenTool },
     { id: 'flow', label: 'Flow Maps', icon: Network },
     { id: 'formulas', label: 'Formula Blocks', icon: Calculator },
     { id: 'stats', label: 'Statistics', icon: TrendingUp },

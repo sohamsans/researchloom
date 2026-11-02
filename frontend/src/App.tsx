@@ -18,6 +18,7 @@ import { PaperChatArea } from './components/PaperChatArea';
 import { MasterReferenceManager } from './components/MasterReferenceManager';
 import { DownloadManagerView } from './components/DownloadManagerView';
 import { WritingStudio } from './components/writer/WritingStudio';
+import { StylusStudio } from './components/stylus/StylusStudio';
 import { FlowMapCanvas } from './components/flowmap/FlowMapCanvas';
 import { DataSheetStudio } from './components/DataSheetStudio';
 import { EvidenceMatrixStudio } from './components/matrix/EvidenceMatrixStudio';
@@ -43,6 +44,7 @@ import {
   VaultPaperItem,
   SavedSearchItem
 } from './types';
+import { MainTabType } from './components/Sidebar';
 import { AlertCircle, BookOpen, MessageSquare, Table } from 'lucide-react';
 import { useNativeDialog } from './context/NativeDialogContext';
 
@@ -54,7 +56,7 @@ const MainLayout: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [stage, setStage] = useState<PipelineStage>('idle');
   const [viewMode, setViewMode] = useState<'matrix' | 'chat'>('matrix');
-  const [mainTab, setMainTab] = useState<'research' | 'references' | 'downloads' | 'studio' | 'flow' | 'sheets' | 'matrix' | 'screening' | 'formulas' | 'stats'>('research');
+  const [mainTab, setMainTab] = useState<MainTabType>('research');
 
   // Modals
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
@@ -688,6 +690,18 @@ const MainLayout: React.FC = () => {
             incomingFormulaSnippet={pendingFormulaSnippet}
             onClearIncomingCitation={() => setPendingCitationPaper(null)}
             onClearIncomingFormula={() => setPendingFormulaSnippet(null)}
+          />
+        </div>
+
+        <div className={mainTab === 'stylus' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+          <StylusStudio
+            onInsertToStudio={(note) => {
+              setPendingFormulaSnippet(note);
+              setMainTab('studio');
+            }}
+            onInsertToFlowMap={(imgUrl) => {
+              setMainTab('flow');
+            }}
           />
         </div>
 

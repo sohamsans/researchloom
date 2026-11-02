@@ -64,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-xs font-semibold text-zinc-100 capitalize">
             {activeTab === 'research' ? 'Literature Research' :
              activeTab === 'studio' ? 'Writing & LaTeX Studio' :
+             activeTab === 'stylus' ? 'Stylus Studio & Scratchpad' :
              activeTab === 'flow' ? 'Interactive Flow Maps' :
              activeTab === 'formulas' ? 'Scientific Formula Blocks' :
              activeTab === 'stats' ? 'Statistical Computing' :

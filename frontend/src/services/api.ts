@@ -23,6 +23,8 @@ import {
   ScreeningAuditItem,
   PRISMAStatsResponse
 } from '../types';
+import { executeStandaloneDiscover, executeStandalonePipeline } from './standaloneClient';
+import { Capacitor } from '@capacitor/core';
 
 const API_BASE = '/api';
 
@@ -31,48 +33,89 @@ function getAuthHeader(token?: string | null): Record<string, string> {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
+function getClientBYOKKeys(): { groq?: string; gemini?: string; openrouter?: string } {
+  try {
+    const raw = localStorage.getItem('autolit_byok_keys');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+}
+
 export async function fetchHealthStatus(): Promise<HealthStatus> {
-  const response = await fetch(`${API_BASE}/health`);
-  if (!response.ok) {
-    throw new Error(`Health check failed: ${response.statusText}`);
+  if (Capacitor.isNativePlatform()) {
+    return {
+      status: 'healthy',
+      groq_configured: true,
+      gemini_configured: true,
+      groq_model: 'llama-3.1-8b-instant (Standalone Client)',
+      gemini_model: 'gemini-1.5-flash (Standalone Client)'
+    };
   }
-  return response.json();
+  try {
+    const response = await fetch(`${API_BASE}/health`);
+    if (!response.ok) {
+      throw new Error(`Health check failed: ${response.statusText}`);
+    }
+    return response.json();
+  } catch {
+    return {
+      status: 'standalone',
+      groq_configured: true,
+      gemini_configured: true,
+      groq_model: 'llama-3.1-8b-instant (Offline Direct)',
+      gemini_model: 'gemini-1.5-flash (Offline Direct)'
+    };
+  }
 }
 
 export async function discoverPapers(request: SearchRequest): Promise<DiscoveryResponse> {
-  const response = await fetch(`${API_BASE}/discover`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeader()
-    },
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Discovery failed (${response.status})`);
+  // If running on native tablet or desktop server unreachable, execute standalone client discovery
+  if (Capacitor.isNativePlatform()) {
+    return executeStandaloneDiscover(request);
   }
 
-  return response.json();
+  try {
+    const response = await fetch(`${API_BASE}/discover`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (response.ok) {
+      return response.json();
+    }
+  } catch {}
+
+  // Graceful standalone fallback
+  return executeStandaloneDiscover(request);
 }
 
 export async function runSelectedPipeline(request: SelectedPipelineRequest): Promise<PipelineResponse> {
-  const response = await fetch(`${API_BASE}/pipeline/selected`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeader()
-    },
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Synthesis failed (${response.status})`);
+  if (Capacitor.isNativePlatform()) {
+    const keys = getClientBYOKKeys();
+    return executeStandalonePipeline(request.selected_papers, request.topic, keys, request.model_provider || 'groq');
   }
 
-  return response.json();
+  try {
+    const response = await fetch(`${API_BASE}/pipeline/selected`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (response.ok) {
+      return response.json();
+    }
+  } catch {}
+
+  const keys = getClientBYOKKeys();
+  return executeStandalonePipeline(request.selected_papers, request.topic, keys, request.model_provider || 'groq');
 }
 
 export async function runReviewPipeline(request: SearchRequest): Promise<PipelineResponse> {
