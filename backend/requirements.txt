@@ -17,6 +17,6 @@ PyJWT>=2.8.0
 PyYAML>=6.0.0
 arxiv>=2.1.0
 habanero>=1.2.6
-libgen-api>=0.2.0
+libgen-api>=1.0.1
 beautifulsoup4>=4.12.0
 email-validator>=2.2.0
