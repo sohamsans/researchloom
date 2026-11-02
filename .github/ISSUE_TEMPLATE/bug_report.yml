@@ -1,0 +1,58 @@
+name: Bug Report
+description: File a bug report to help improve ResearchLoom
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please provide as much detail as possible to help us reproduce and resolve it quickly.
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Where did you encounter this bug?
+      options:
+        - Standalone Desktop (Windows x64)
+        - Standalone Desktop (macOS Apple Silicon)
+        - Android Tablet / Foldable (APK)
+        - Web / Local Dev Server
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ResearchLoom Version
+      placeholder: e.g. v4.3.5
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open 'Stylus Studio' or 'Flow Maps'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Screenshots
+      description: Please paste browser console logs, Android logcat output, or attach screenshots.

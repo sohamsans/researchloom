@@ -1,0 +1,41 @@
+name: Feature Request
+description: Suggest an idea or new feature for ResearchLoom
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We appreciate your suggestions to improve ResearchLoom's academic literature and tablet sketching workflows!
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      options:
+        - Stylus Studio & Pen Dynamics
+        - Flow Maps & Graph Visualizations
+        - Academic Literature Discovery & APIs
+        - Two-Stage LLM Synthesis & Evidence Extraction
+        - Writing Studio & LaTeX Engine
+        - Platform Portability (Android, macOS, Windows)
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of the pain point or gap.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: How should this feature work?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or features you've considered.
