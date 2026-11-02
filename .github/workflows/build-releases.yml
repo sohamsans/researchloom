@@ -139,21 +139,26 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Dependencies
         run: |
           cd frontend
-          npm ci || npm install
+          npm install --legacy-peer-deps
           cd ..
 
-      - name: Build Frontend & Sync Capacitor
+      - name: Build Frontend
         run: |
           cd frontend
           npm run build
-          npx @capacitor/cli sync android
+          cd ..
+
+      - name: Sync Capacitor Android
+        run: |
+          cd frontend
+          ./node_modules/.bin/cap sync android
           cd ..
 
       - name: Build Android Release APK with Gradle
