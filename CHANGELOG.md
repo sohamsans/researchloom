@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.3.3] - 2026-11-02
+
+### Added
+- **Dedicated Standalone Android Tablet Port**:
+  - Independent runtime capability for Android tablets (Samsung Galaxy Tab, Google Pixel Tablet, Lenovo Tab) operating 100% autonomously without desktop connection.
+  - Client-side academic discovery engine (`standaloneClient.ts`) querying OpenAlex Polite Pool and arXiv search APIs directly from device.
+  - Direct client BYOK LLM synthesis pipeline (Groq `llama-3.1-8b-instant`, Google Gemini `gemini-1.5-flash`, and OpenRouter) with client-side deduplication.
+- **Native Stylus Studio & Mathematical Scratchpad (`StylusStudio.tsx`)**:
+  - Primary navigation workspace with full W3C Pointer Events Level 3 tracking and sub-millisecond drawing latency.
+  - Dynamic hardware pressure curve modulation: $\text{lineWidth} = \text{baseSize} \times (0.35 + 1.65 \times \text{pressure})$.
+  - Strict palm rejection ignoring touch inputs during active pen contact or hover.
+  - S-Pen hardware side-button auto-eraser toggle (`e.buttons === 32`).
+  - Direct workflow exports to Interactive Flow Maps and LaTeX Studio.
+- **Multi-Platform CI/CD Automated Releases**:
+  - GitHub Actions automated matrix building and attaching `ResearchLoom-android-tablet.apk`, `ResearchLoom-macOS-arm64.dmg`, and `ResearchLoom.exe`.
+
+### Changed
+- Refactored desktop navigation header to eliminate companion bridge popups, maintaining a clean, distraction-free desktop environment.
+
+---
+
+## [v4.3.2] - 2026-11-02
+
+### Added
+- **Automated Multi-Platform Release Pipeline**:
+  - Cross-platform release packaging for Windows (`.exe` standalone portable and `.zip` archive) and macOS (`.dmg` drag-and-drop installer for Apple Silicon).
+  - Automated GitHub Actions tagging release distribution.
+- **Hardware Stylus Integration**:
+  - Tablet screen declarations (`largeScreens="true"`, `xlargeScreens="true"`) and multitouch hardware declarations in Android manifest.
+
+### Changed
+- Polished desktop header controls by removing experimental wireless tablet bridge buttons.
+
+---
+
 ## [v4.3.1] - 2026-11-01
 
 ### Fixed
