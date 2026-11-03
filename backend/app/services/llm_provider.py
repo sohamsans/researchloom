@@ -178,48 +178,6 @@ class UniversalLLMClient:
             return bool(self.claude_key)
         if p == "openai":
             return bool(self.openai_key)
-        if p == "claude":
-            if not self.claude_key:
-                raise RuntimeError("Anthropic Claude API key is not configured.")
-            model = self.model_name if self.provider == "claude" else "claude-3-5-sonnet-20241022"
-            async with httpx.AsyncClient(timeout=45.0) as client:
-                resp = await client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers={
-                        "x-api-key": self.claude_key,
-                        "anthropic-version": "2023-06-01",
-                        "content-type": "application/json"
-                    },
-                    json={
-                        "model": model,
-                        "max_tokens": max_tokens,
-                        "system": system_prompt,
-                        "messages": [{"role": "user", "content": user_prompt}],
-                        "temperature": 0.2
-                    }
-                )
-                if resp.status_code != 200:
-                    raise RuntimeError(f"Claude API error ({resp.status_code}): {resp.text[:300]}")
-                data = resp.json()
-                content = data.get("content", [])
-                if content and isinstance(content, list) and "text" in content[0]:
-                    return content[0]["text"]
-                return "{}"
-
-        if p == "openai":
-            if not self.openai_key:
-                raise RuntimeError("OpenAI API key is not configured.")
-            model = self.model_name if self.provider == "openai" else "gpt-4o-mini"
-            return await self._call_openai_compatible(
-                base_url="https://api.openai.com/v1",
-                api_key=self.openai_key,
-                model=model,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                max_tokens=max_tokens,
-                response_json=response_json
-            )
-
         if p == "openrouter":
             return bool(self.openrouter_key)
         if p == "deepseek":
