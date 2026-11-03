@@ -257,6 +257,12 @@ API keys for LLM providers (Groq, Google Gemini, OpenRouter) can be entered dire
 
 ---
 
-## License
+## License & Non-Commercial Copyleft Terms
 
-MIT License. See `LICENSE` for details.
+ResearchLoom (Samhita) is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**.
+
+- **Non-Commercial Only**: You are free to inspect, run, modify, and distribute this software for personal, academic, educational, and research purposes.
+- **Commercial Exploitation Strictly Prohibited**: Any use, sale, paid licensing, commercial subscription bundling, SaaS hosting for profit, or commercial closed-sourcing of this software is strictly unlawful and forbidden.
+- **Perpetual Open-Source**: All derivative works, modifications, and forks must remain public and open-source under the exact same non-commercial terms.
+
+See [`LICENSE`](LICENSE) for full legal text and conditions.
