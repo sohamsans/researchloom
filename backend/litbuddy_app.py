@@ -25,9 +25,16 @@ else:
 if MEIPASS_DIR not in sys.path:
     sys.path.insert(0, MEIPASS_DIR)
 
-# ── Persistent data directories (next to the .exe) ───────────────────────────
-APP_DATA_DIR = os.path.join(BASE_DIR, "app_data")
-PAPERS_DIR = os.path.join(BASE_DIR, "LitBuddy Papers")
+# ── Persistent data directories ──────────────────────────────────────────────
+# On Linux, support standard XDG directory structure if not in portable folder
+if sys.platform.startswith("linux") and not os.access(BASE_DIR, os.W_OK):
+    xdg_data = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+    APP_DATA_DIR = os.path.join(xdg_data, "ResearchLoom", "app_data")
+    PAPERS_DIR = os.path.join(xdg_data, "ResearchLoom", "ResearchLoom Papers")
+else:
+    APP_DATA_DIR = os.path.join(BASE_DIR, "app_data")
+    PAPERS_DIR = os.path.join(BASE_DIR, "ResearchLoom Papers")
+
 os.makedirs(APP_DATA_DIR, exist_ok=True)
 os.makedirs(PAPERS_DIR, exist_ok=True)
 os.makedirs(os.path.join(APP_DATA_DIR, "figures"), exist_ok=True)
@@ -249,11 +256,13 @@ def main():
         # Allow HTML5 / Blob / Excel / CSV file downloads in pywebview WebView2 window
         webview.settings['ALLOW_DOWNLOADS'] = True
 
-        # Resolve icon path — look next to exe first, then source tree
+        # Resolve icon path — look next to exe/binary first, then source tree
         icon = None
         for candidate in [
             ICON_PATH,
+            os.path.join(BASE_DIR, "icon.png"),
             os.path.join(BASE_DIR, "icon.ico"),
+            os.path.join(MEIPASS_DIR, "icon.png"),
             os.path.join(MEIPASS_DIR, "icon.ico"),
         ]:
             if os.path.exists(candidate):
@@ -272,30 +281,40 @@ def main():
         )
 
         def _apply_windows_dark_titlebar():
-            if sys.platform != "win32":
-                return
-            import ctypes
-            try:
-                # Direct IntPtr extraction from pywebview WinForms native form
-                if window.native and hasattr(window.native, "Handle"):
-                    hwnd = int(window.native.Handle.ToInt64())
-                else:
-                    hwnd = ctypes.windll.user32.FindWindowW(None, "ResearchLoom (Samhita)")
-                    if not hwnd:
-                        hwnd = ctypes.windll.user32.FindWindowW(None, "LitBuddy")
-                if hwnd:
-                    val = ctypes.c_int(1)
-                    # DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win11/Win10 20H1+, 19 on older Win10)
-                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
-                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
-                    # DWMWA_CAPTION_COLOR (35) -> #121316 BGR: 0x00161312
-                    caption_color = ctypes.c_int(0x00161312)
-                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(caption_color), ctypes.sizeof(caption_color))
-                    # DWMWA_TEXT_COLOR (36) -> #e3e3e3 BGR: 0x00E3E3E3
-                    text_color = ctypes.c_int(0x00E3E3E3)
-                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
-            except Exception as e:
-                print(f"[Titlebar Styling] {e}")
+            if sys.platform == "win32":
+                import ctypes
+                try:
+                    # Direct IntPtr extraction from pywebview WinForms native form
+                    if window.native and hasattr(window.native, "Handle"):
+                        hwnd = int(window.native.Handle.ToInt64())
+                    else:
+                        hwnd = ctypes.windll.user32.FindWindowW(None, "ResearchLoom (Samhita)")
+                        if not hwnd:
+                            hwnd = ctypes.windll.user32.FindWindowW(None, "LitBuddy")
+                    if hwnd:
+                        val = ctypes.c_int(1)
+                        # DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win11/Win10 20H1+, 19 on older Win10)
+                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
+                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
+                        # DWMWA_CAPTION_COLOR (35) -> #121316 BGR: 0x00161312
+                        caption_color = ctypes.c_int(0x00161312)
+                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(caption_color), ctypes.sizeof(caption_color))
+                        # DWMWA_TEXT_COLOR (36) -> #e3e3e3 BGR: 0x00E3E3E3
+                        text_color = ctypes.c_int(0x00E3E3E3)
+                        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
+                except Exception as e:
+                    print(f"[Titlebar Styling] {e}")
+            elif sys.platform.startswith("linux"):
+                try:
+                    # Prefer GTK dark theme on Linux desktop environments (GNOME, XFCE, Cinnamon, KDE)
+                    import gi
+                    gi.require_version('Gtk', '3.0')
+                    from gi.repository import Gtk
+                    settings = Gtk.Settings.get_default()
+                    if settings:
+                        settings.set_property("gtk-application-prefer-dark-theme", True)
+                except Exception:
+                    pass
 
         window.events.shown += _apply_windows_dark_titlebar
 

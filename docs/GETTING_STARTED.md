@@ -13,7 +13,7 @@ ResearchLoom is distributed across multiple platforms: standalone Android APK, d
 
 ---
 
-## 💻 Standalone Desktop (Windows & macOS)
+## 💻 Standalone Desktop (Windows, macOS & Linux)
 
 ### Windows
 1. Download `ResearchLoom.exe` or `ResearchLoom-windows-x64.zip`.
@@ -23,6 +23,16 @@ ResearchLoom is distributed across multiple platforms: standalone Android APK, d
 ### macOS (Apple Silicon M1/M2/M3)
 1. Download `ResearchLoom-macOS-arm64.dmg`.
 2. Drag `ResearchLoom.app` into your Applications folder.
+
+### Linux (Ubuntu, Debian, Fedora, Arch)
+1. Download `ResearchLoom-linux-x86_64.AppImage` (or `ResearchLoom-linux-x86_64.tar.gz`).
+2. Make the AppImage executable and launch:
+   ```bash
+   chmod +x ResearchLoom-linux-x86_64.AppImage
+   ./ResearchLoom-linux-x86_64.AppImage
+   ```
+3. **Desktop Integration (Optional)**: If using the `.tar.gz` distribution, extract it and run `./install-linux.sh` to install desktop icons and `.desktop` launcher to `~/.local/share/applications`.
+4. Standalone mode stores your papers, models, and SQLite vault under `~/.local/share/ResearchLoom` according to XDG standards.
 
 ---
 

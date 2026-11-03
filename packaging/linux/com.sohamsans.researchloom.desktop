@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=ResearchLoom
+GenericName=Academic Research Workbench
+Comment=Autonomous academic literature synthesis engine, flow canvas explorer, and local vault
+Exec=ResearchLoom %F
+Icon=researchloom
+Terminal=false
+Categories=Office;Science;Education;
+MimeType=application/pdf;text/x-tex;
+StartupWMClass=ResearchLoom (Samhita)
+Keywords=Research;Literature;Review;Synthesis;Academic;Papers;arXiv;PDF;LaTeX;

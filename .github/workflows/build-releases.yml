@@ -178,3 +178,86 @@ jobs:
             dist_apk/ResearchLoom-android-tablet.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Build Linux Universal AppImage & Archive (.AppImage, .tar.gz)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies (WebKitGTK & Tools)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev file wget patchelf
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          cd ..
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pyinstaller pywebview PyGObject
+
+      - name: Build Linux Standalone Binary with PyInstaller
+        run: |
+          cp frontend/public/logo.png icon.png
+          pyinstaller --clean --noconfirm litbuddy_linux.spec
+
+      - name: Package Linux AppImage
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
+
+          cp dist/ResearchLoom-linux-x86_64 AppDir/usr/bin/
+          cp packaging/linux/com.sohamsans.researchloom.desktop AppDir/
+          cp packaging/linux/com.sohamsans.researchloom.desktop AppDir/usr/share/applications/
+          cp icon.png AppDir/researchloom.png
+          cp icon.png AppDir/usr/share/icons/hicolor/512x512/apps/researchloom.png
+          cp packaging/linux/AppRun AppDir/
+          chmod +x AppDir/AppRun AppDir/usr/bin/ResearchLoom-linux-x86_64
+
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract
+          ./squashfs-root/AppRun AppDir dist/ResearchLoom-linux-x86_64.AppImage
+
+      - name: Package Linux Archive (.tar.gz)
+        run: |
+          mkdir -p package_linux
+          cp dist/ResearchLoom-linux-x86_64 package_linux/
+          cp icon.png package_linux/
+          cp packaging/linux/com.sohamsans.researchloom.desktop package_linux/
+          cp packaging/linux/install-linux.sh package_linux/
+          chmod +x package_linux/install-linux.sh
+          tar -czvf dist/ResearchLoom-linux-x86_64.tar.gz -C package_linux .
+
+      - name: Upload Linux Artifacts to Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/ResearchLoom-linux-x86_64.AppImage
+            dist/ResearchLoom-linux-x86_64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

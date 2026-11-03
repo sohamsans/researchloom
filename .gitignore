@@ -14,7 +14,9 @@ frontend/dist/
 __pycache__/
 *.py[cod]
 *$py.class
-*.spec.bak
+*.spec
+!litbuddy.spec
+!litbuddy_linux.spec.bak
 build/
 dist/
 *.egg-info/
@@ -56,6 +58,8 @@ plan_*.md
 findings.md
 progress.md
 *.spec
+!litbuddy.spec
+!litbuddy_linux.spec
 
 # Deployment mirror folder
 netlify_deploy/
