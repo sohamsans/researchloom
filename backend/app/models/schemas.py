@@ -12,10 +12,12 @@ class SearchRequest(BaseModel):
     relevance_threshold: int = Field(default=4, ge=1, le=5, description="Min relevance score (1-5) for Stage 2")
     
     # Universal BYOK Provider Configuration
-    model_provider: Optional[str] = Field(default="groq", description="groq, gemini, openrouter, deepseek, nvidia, custom")
+    model_provider: Optional[str] = Field(default="groq", description="groq, gemini, claude, openai, openrouter, deepseek, nvidia, custom")
     model_name: Optional[str] = Field(default=None, description="Model identifier")
     groq_api_key: Optional[str] = Field(default=None, description="Optional runtime Groq API key")
     gemini_api_key: Optional[str] = Field(default=None, description="Optional runtime Gemini API key")
+    claude_api_key: Optional[str] = Field(default=None, description="Optional runtime Anthropic Claude API key")
+    openai_api_key: Optional[str] = Field(default=None, description="Optional runtime OpenAI API key")
     openrouter_api_key: Optional[str] = Field(default=None, description="Optional runtime OpenRouter API key")
     deepseek_api_key: Optional[str] = Field(default=None, description="Optional runtime DeepSeek API key")
     nvidia_api_key: Optional[str] = Field(default=None, description="Optional runtime NVIDIA NIM API key")
@@ -34,6 +36,8 @@ class PaperQARequest(BaseModel):
     model_name: Optional[str] = None
     groq_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    claude_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None
     deepseek_api_key: Optional[str] = None
     nvidia_api_key: Optional[str] = None
@@ -116,6 +120,8 @@ class SelectedPipelineRequest(BaseModel):
     model_name: Optional[str] = None
     groq_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    claude_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None
     deepseek_api_key: Optional[str] = None
     nvidia_api_key: Optional[str] = None
@@ -201,6 +207,8 @@ class UserProfileResponse(BaseModel):
 class UpdateKeysRequest(BaseModel):
     groq_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    claude_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None
     deepseek_api_key: Optional[str] = None
     nvidia_api_key: Optional[str] = None

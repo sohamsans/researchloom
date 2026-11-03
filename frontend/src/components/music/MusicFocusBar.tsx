@@ -180,14 +180,21 @@ export const MusicFocusBar: React.FC = () => {
     e.preventDefault();
     if (!customSpotifyUrl.trim()) return;
     try {
-      let embed = customSpotifyUrl.trim();
-      if (embed.includes('open.spotify.com')) {
-        embed = embed.replace('open.spotify.com/', 'open.spotify.com/embed/');
+      const parsed = new URL(customSpotifyUrl.trim());
+      if (parsed.hostname === 'open.spotify.com' || parsed.hostname.endsWith('.spotify.com')) {
+        let path = parsed.pathname;
+        if (!path.startsWith('/embed/')) {
+          path = '/embed' + path;
+        }
+        setSpotifyEmbedUrl(`https://open.spotify.com${path}`);
+        setAudioSource('spotify');
+        setCustomSpotifyUrl('');
+      } else {
+        alert('Please enter a valid Spotify track or playlist URL.');
       }
-      setSpotifyEmbedUrl(embed);
-      setAudioSource('spotify');
-      setCustomSpotifyUrl('');
-    } catch (e) {}
+    } catch {
+      alert('Invalid URL format.');
+    }
   };
 
   return (

@@ -104,8 +104,14 @@ export const UnifiedSearchBar: React.FC<UnifiedSearchBarProps> = ({
         return { label: 'DeepSeek', icon: Brain, tier: 'Ultra-Low Cost' };
       case 'nvidia':
         return { label: 'NVIDIA NIM', icon: Sliders, tier: 'Free Credits' };
+      case 'claude':
+        return { label: 'Claude', icon: Brain, tier: 'Anthropic BYOK' };
+      case 'openai':
+        return { label: 'OpenAI', icon: Sparkles, tier: 'GPT-4o BYOK' };
       case 'custom':
         return { label: 'Custom API', icon: Sliders, tier: 'Custom Proxy' };
+      default:
+        return { label: 'AI Engine', icon: Sparkles, tier: 'Cloud' };
     }
   };
 

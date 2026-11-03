@@ -131,9 +131,9 @@ async def run_literature_review_pipeline(request: SearchRequest) -> PipelineResp
             f"No papers met threshold score of {request.relevance_threshold}. Included top {len(selected_papers)} papers."
         )
 
-    # Phase C & D: Deep Extraction (bounded with per-paper 14s timeout)
+    # Phase C & D: Deep Extraction (accelerated with 6 concurrent async workers)
     extracted_papers: List[ReviewPaper] = []
-    semaphore = asyncio.Semaphore(3)
+    semaphore = asyncio.Semaphore(6)
 
     async def bounded_process(p: RawPaperMetadata):
         async with semaphore:
@@ -281,9 +281,9 @@ async def run_pipeline_on_selected_papers(request: SelectedPipelineRequest) -> P
     deep_candidates = filtered[:max_deep_count]
     remaining_candidates = filtered[max_deep_count:]
 
-    # Stage 2: Deep extraction (bounded with per-paper 14s timeout)
+    # Stage 2: Deep extraction (accelerated with 6 concurrent async workers)
     extracted_papers: List[ReviewPaper] = []
-    semaphore = asyncio.Semaphore(4)
+    semaphore = asyncio.Semaphore(6)
 
     async def bounded_process(p: RawPaperMetadata):
         async with semaphore:

@@ -98,7 +98,9 @@ class UniversalLLMClient:
     """
     Universal LLM Hub supporting:
     - Groq (openai/gpt-oss-20b, llama-3.1-8b-instant, llama-3.3-70b-versatile)
-    - Google Gemini (gemini-3.5-flash-lite, gemini-2.0-flash, gemini-1.5-flash)
+    - Google Gemini (gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro)
+    - Anthropic Claude (claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022)
+    - OpenAI (gpt-4o, gpt-4o-mini, o1-mini)
     - OpenRouter (openrouter.ai/api/v1 - meta-llama/llama-3.3-70b-instruct:free, etc.)
     - DeepSeek (deepseek-chat, deepseek-reasoner)
     - NVIDIA NIM (meta/llama-3.1-8b-instruct)
@@ -111,6 +113,8 @@ class UniversalLLMClient:
         api_key: Optional[str] = None,
         groq_key: Optional[str] = None,
         gemini_key: Optional[str] = None,
+        claude_key: Optional[str] = None,
+        openai_key: Optional[str] = None,
         openrouter_key: Optional[str] = None,
         deepseek_key: Optional[str] = None,
         nvidia_key: Optional[str] = None,
@@ -120,6 +124,8 @@ class UniversalLLMClient:
         settings = get_settings()
         self.groq_key = (groq_key or settings.groq_api_key).strip()
         self.gemini_key = (gemini_key or settings.gemini_api_key).strip()
+        self.claude_key = (claude_key or "").strip()
+        self.openai_key = (openai_key or "").strip()
         self.openrouter_key = (openrouter_key or "").strip()
         self.deepseek_key = (deepseek_key or "").strip()
         self.nvidia_key = (nvidia_key or "").strip()
@@ -130,7 +136,7 @@ class UniversalLLMClient:
         # If requested provider has no configured key, or no provider was passed,
         # automatically route to the first provider that actually has credentials!
         req_provider = (provider or "").lower().strip()
-        candidates = ["gemini", "groq", "openrouter", "deepseek", "nvidia", "custom"]
+        candidates = ["gemini", "groq", "claude", "openai", "openrouter", "deepseek", "nvidia", "custom"]
         if req_provider and self.has_configured_key(req_provider):
             self.provider = req_provider
         else:
@@ -146,6 +152,10 @@ class UniversalLLMClient:
                 self.model_name = settings.groq_model or "llama-3.3-70b-versatile"
             else:
                 self.model_name = model_name
+        elif self.provider == "claude":
+            self.model_name = model_name or "claude-3-5-sonnet-20241022"
+        elif self.provider == "openai":
+            self.model_name = model_name or "gpt-4o-mini"
         elif self.provider == "openrouter":
             self.model_name = model_name if (model_name and "/" in model_name) else "meta-llama/llama-3.3-70b-instruct:free"
         elif self.provider == "deepseek":
@@ -164,6 +174,52 @@ class UniversalLLMClient:
             return bool(self.groq_key)
         if p == "gemini":
             return bool(self.gemini_key)
+        if p == "claude":
+            return bool(self.claude_key)
+        if p == "openai":
+            return bool(self.openai_key)
+        if p == "claude":
+            if not self.claude_key:
+                raise RuntimeError("Anthropic Claude API key is not configured.")
+            model = self.model_name if self.provider == "claude" else "claude-3-5-sonnet-20241022"
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                resp = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": self.claude_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json"
+                    },
+                    json={
+                        "model": model,
+                        "max_tokens": max_tokens,
+                        "system": system_prompt,
+                        "messages": [{"role": "user", "content": user_prompt}],
+                        "temperature": 0.2
+                    }
+                )
+                if resp.status_code != 200:
+                    raise RuntimeError(f"Claude API error ({resp.status_code}): {resp.text[:300]}")
+                data = resp.json()
+                content = data.get("content", [])
+                if content and isinstance(content, list) and "text" in content[0]:
+                    return content[0]["text"]
+                return "{}"
+
+        if p == "openai":
+            if not self.openai_key:
+                raise RuntimeError("OpenAI API key is not configured.")
+            model = self.model_name if self.provider == "openai" else "gpt-4o-mini"
+            return await self._call_openai_compatible(
+                base_url="https://api.openai.com/v1",
+                api_key=self.openai_key,
+                model=model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=max_tokens,
+                response_json=response_json
+            )
+
         if p == "openrouter":
             return bool(self.openrouter_key)
         if p == "deepseek":
@@ -178,7 +234,7 @@ class UniversalLLMClient:
         """Check whether any LLM provider has an active key configured."""
         return any(
             self.has_configured_key(p)
-            for p in ["groq", "gemini", "openrouter", "deepseek", "nvidia", "custom"]
+            for p in ["gemini", "groq", "claude", "openai", "openrouter", "deepseek", "nvidia", "custom"]
         )
 
     async def _call_openai_compatible(
@@ -323,6 +379,48 @@ class UniversalLLMClient:
                 raise RuntimeError("Google Gemini API key is not configured.")
             return await self._call_gemini(system_prompt, user_prompt, response_json=response_json)
 
+        if p == "claude":
+            if not self.claude_key:
+                raise RuntimeError("Anthropic Claude API key is not configured.")
+            model = self.model_name if self.provider == "claude" else "claude-3-5-sonnet-20241022"
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                resp = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": self.claude_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json"
+                    },
+                    json={
+                        "model": model,
+                        "max_tokens": max_tokens,
+                        "system": system_prompt,
+                        "messages": [{"role": "user", "content": user_prompt}],
+                        "temperature": 0.2
+                    }
+                )
+                if resp.status_code != 200:
+                    raise RuntimeError(f"Claude API error ({resp.status_code}): {resp.text[:300]}")
+                data = resp.json()
+                content = data.get("content", [])
+                if content and isinstance(content, list) and "text" in content[0]:
+                    return content[0]["text"]
+                return "{}"
+
+        if p == "openai":
+            if not self.openai_key:
+                raise RuntimeError("OpenAI API key is not configured.")
+            model = self.model_name if self.provider == "openai" else "gpt-4o-mini"
+            return await self._call_openai_compatible(
+                base_url="https://api.openai.com/v1",
+                api_key=self.openai_key,
+                model=model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=max_tokens,
+                response_json=response_json
+            )
+
         if p == "openrouter":
             if not self.openrouter_key:
                 raise RuntimeError("OpenRouter API key is not configured.")
@@ -404,7 +502,7 @@ class UniversalLLMClient:
             )
 
         # Build list of candidate providers that actually have keys/endpoints configured
-        all_providers = ["groq", "gemini", "openrouter", "deepseek", "nvidia", "custom"]
+        all_providers = ["gemini", "groq", "claude", "openai", "openrouter", "deepseek", "nvidia", "custom"]
         ordered = [self.provider] + [p for p in all_providers if p != self.provider]
         candidate_providers = [p for p in ordered if self.has_configured_key(p)]
 

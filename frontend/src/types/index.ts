@@ -1,4 +1,4 @@
-export type ModelProvider = 'groq' | 'gemini' | 'openrouter' | 'deepseek' | 'nvidia' | 'custom';
+export type ModelProvider = 'groq' | 'gemini' | 'claude' | 'openai' | 'openrouter' | 'deepseek' | 'nvidia' | 'custom';
 
 export interface SearchRequest {
   topic: string;
@@ -13,6 +13,8 @@ export interface SearchRequest {
   model_name?: string;
   groq_api_key?: string;
   gemini_api_key?: string;
+  claude_api_key?: string;
+  openai_api_key?: string;
   openrouter_api_key?: string;
   deepseek_api_key?: string;
   nvidia_api_key?: string;
@@ -50,6 +52,8 @@ export interface SelectedPipelineRequest {
   model_name?: string;
   groq_api_key?: string;
   gemini_api_key?: string;
+  claude_api_key?: string;
+  openai_api_key?: string;
   openrouter_api_key?: string;
   deepseek_api_key?: string;
   nvidia_api_key?: string;
@@ -117,6 +121,8 @@ export interface PaperQARequest {
   model_name?: string;
   groq_api_key?: string;
   gemini_api_key?: string;
+  claude_api_key?: string;
+  openai_api_key?: string;
   openrouter_api_key?: string;
   deepseek_api_key?: string;
   nvidia_api_key?: string;

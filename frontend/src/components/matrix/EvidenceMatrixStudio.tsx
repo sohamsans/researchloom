@@ -296,12 +296,14 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
     tex += colHeaders.map((h) => `\\textbf{${h}}`).join(' & ') + ' \\\\\n\\hline\n';
 
     allPapers.forEach((p) => {
+      const safeTitle = (p.title || '').replace(/\\/g, '\\textbackslash{}').replace(/[_$%&]/g, '\\$&');
       const rowValues = [
-        p.title.replace(/[_$%&]/g, '\\$&').slice(0, 35) + '...'
+        safeTitle.slice(0, 35) + '...'
       ];
       columns.forEach((c) => {
         const cellData = cells[`${p.id}_${c.id}`];
-        const val = cellData ? cellData.value.replace(/[_$%&]/g, '\\$&') : '-';
+        const rawVal = cellData ? cellData.value : '-';
+        const val = rawVal.replace(/\\/g, '\\textbackslash{}').replace(/[_$%&]/g, '\\$&');
         rowValues.push(val.slice(0, 50));
       });
       tex += rowValues.join(' & ') + ' \\\\\n';

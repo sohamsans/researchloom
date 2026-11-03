@@ -22,13 +22,13 @@ export const ExportBar: React.FC<ExportBarProps> = ({ papers, topic }) => {
 
     papers.forEach(p => {
       const score = p.relevance_score || 4;
-      const title = (p.title || '').replace(/\|/g, '\\|');
+      const title = (p.title || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
       const year = p.year || '';
-      const authors = (p.authors || []).slice(0, 3).join(', ').replace(/\|/g, '\\|');
-      const problem = (p.core_problem || '').replace(/\|/g, '\\|');
-      const method = (p.methodology || '').replace(/\|/g, '\\|');
-      const findings = (p.key_findings || '').replace(/\|/g, '\\|');
-      const gaps = (p.research_gaps || '').replace(/\|/g, '\\|');
+      const authors = (p.authors || []).slice(0, 3).join(', ').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+      const problem = (p.core_problem || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+      const method = (p.methodology || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+      const findings = (p.key_findings || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+      const gaps = (p.research_gaps || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
       const link = p.doi_link ? `[Link](${p.doi_link})` : '';
 
       mdLines.push(`| ${score}/5 | ${title} | ${year} | ${authors} | ${problem} | ${method} | ${findings} | ${gaps} | ${link} |`);

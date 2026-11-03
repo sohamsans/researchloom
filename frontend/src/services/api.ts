@@ -709,11 +709,38 @@ export async function fetchPRISMAFlowStats(workspaceId: string = 'default_worksp
   return resp.json();
 }
 
+export async function generateAIFlowMap(topic: string, papers?: any[]): Promise<{
+  title: string;
+  nodes: any[];
+  edges: any[];
+}> {
+  const byok = getClientBYOKKeys();
+  const res = await fetch(`${API_BASE}/flow/generate-ai-map`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify({
+      topic,
+      papers: papers || [],
+      groq_api_key: byok.groq,
+      gemini_api_key: byok.gemini,
+      claude_api_key: (byok as any).claude,
+      openai_api_key: (byok as any).openai,
+      openrouter_api_key: byok.openrouter
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to generate AI flow map.');
+  }
+  return res.json();
+}
+
 export const api = {
   fetchHealthStatus,
   discoverPapers,
   runSelectedPipeline,
   runReviewPipeline,
+  generateAIFlowMap,
   sendAssistantChat,
   sendPaperQA,
   register,

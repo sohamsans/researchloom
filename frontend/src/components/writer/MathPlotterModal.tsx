@@ -92,7 +92,7 @@ export const MathPlotterModal: React.FC<MathPlotterModalProps> = ({
     thick,
     domain=${xMin}:${xMax},
     samples=100
-] {${functionExpr.replace(/\//g, '/')}};
+] {${functionExpr}};
 \\end{axis}
 \\end{tikzpicture}
 \\caption{Empirical verification plot generated with LitBuddy.}
