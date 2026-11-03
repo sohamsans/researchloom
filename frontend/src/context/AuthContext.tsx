@@ -192,6 +192,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (keys.gemini_api_key !== undefined) newKeys.gemini = keys.gemini_api_key;
     else if (keys.gemini !== undefined) newKeys.gemini = keys.gemini;
 
+    if (keys.claude_api_key !== undefined) newKeys.claude = keys.claude_api_key;
+    else if (keys.claude !== undefined) newKeys.claude = keys.claude;
+
+    if (keys.openai_api_key !== undefined) newKeys.openai = keys.openai_api_key;
+    else if (keys.openai !== undefined) newKeys.openai = keys.openai;
+
     if (keys.openrouter_api_key !== undefined) newKeys.openrouter = keys.openrouter_api_key;
     else if (keys.openrouter !== undefined) newKeys.openrouter = keys.openrouter;
 
@@ -219,6 +225,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleSetActiveProvider('gemini');
     } else if (newKeys.groq && newKeys.groq.trim()) {
       handleSetActiveProvider('groq');
+    } else if (newKeys.claude && newKeys.claude.trim()) {
+      handleSetActiveProvider('claude');
+    } else if (newKeys.openai && newKeys.openai.trim()) {
+      handleSetActiveProvider('openai');
     } else if (newKeys.openrouter && newKeys.openrouter.trim()) {
       handleSetActiveProvider('openrouter');
     } else if (newKeys.deepseek && newKeys.deepseek.trim()) {

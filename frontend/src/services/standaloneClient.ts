@@ -188,7 +188,7 @@ export function deduplicatePapers(papers: RawPaperMetadata[]): RawPaperMetadata[
 export async function callClientLLM(
   prompt: string,
   systemPrompt: string,
-  keys: { groq?: string; gemini?: string; openrouter?: string },
+  keys: { groq?: string; gemini?: string; claude?: string; openai?: string; openrouter?: string },
   preferredProvider: string = 'groq'
 ): Promise<string> {
   // Provider 1: Groq Cloud (Fast, generous rate limits)
@@ -234,7 +234,53 @@ export async function callClientLLM(
     }
   }
 
-  // Provider 3: OpenRouter
+  // Provider 3: OpenAI
+  if (preferredProvider === 'openai' && keys.openai) {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${keys.openai.trim()}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || '';
+    }
+  }
+
+  // Provider 4: Anthropic Claude
+  if (preferredProvider === 'claude' && keys.claude) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': keys.claude.trim(),
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.content?.[0]?.text || '';
+    }
+  }
+
+  // Provider 5: OpenRouter
   if (keys.openrouter) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -285,7 +331,7 @@ export async function executeStandaloneDiscover(req: SearchRequest): Promise<Dis
 export async function executeStandalonePipeline(
   papers: RawPaperMetadata[],
   topic: string,
-  keys: { groq?: string; gemini?: string; openrouter?: string },
+  keys: { groq?: string; gemini?: string; claude?: string; openai?: string; openrouter?: string },
   provider: string = 'groq'
 ): Promise<PipelineResponse> {
   const candidateSummary = papers.slice(0, 15).map((p, i) => `[${i + 1}] "${p.title}" (${p.year}) - Authors: ${p.authors.join(', ')}\nAbstract: ${p.abstract?.slice(0, 300) || 'None'}`).join('\n\n');

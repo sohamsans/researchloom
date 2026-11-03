@@ -162,11 +162,14 @@ export interface UserProfile {
   configured_keys: {
     groq?: string;
     gemini?: string;
+    claude?: string;
+    openai?: string;
     openrouter?: string;
     deepseek?: string;
     nvidia?: string;
     custom?: string;
     custom_base_url?: string;
+    [key: string]: string | undefined;
   };
 }
 

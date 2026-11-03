@@ -23,6 +23,7 @@ import {
   ScreeningAuditItem,
   PRISMAStatsResponse
 } from '../types';
+import { FALLBACK_PROVIDERS_INFO } from './providersFallback';
 import { executeStandaloneDiscover, executeStandalonePipeline } from './standaloneClient';
 import { Capacitor } from '@capacitor/core';
 
@@ -33,9 +34,9 @@ function getAuthHeader(token?: string | null): Record<string, string> {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
-function getClientBYOKKeys(): { groq?: string; gemini?: string; openrouter?: string } {
+function getClientBYOKKeys(): { groq?: string; gemini?: string; claude?: string; openai?: string; openrouter?: string } {
   try {
-    const raw = localStorage.getItem('autolit_byok_keys');
+    const raw = localStorage.getItem('autolit_runtime_keys') || localStorage.getItem('autolit_byok_keys');
     if (raw) return JSON.parse(raw);
   } catch {}
   return {};
@@ -273,11 +274,19 @@ export async function saveKeys(token: string, keys: Record<string, string>) {
 }
 
 export async function getProvidersInfo(): Promise<ProvidersInfoResponse> {
-  const res = await fetch(`${API_BASE}/auth/providers-info`);
-  if (!res.ok) {
-    throw new Error('Failed to fetch providers directory');
+  if (Capacitor.isNativePlatform()) {
+    return FALLBACK_PROVIDERS_INFO;
   }
-  return res.json();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(`${API_BASE}/auth/providers-info`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return FALLBACK_PROVIDERS_INFO;
 }
 
 export async function getChatHistory(token: string): Promise<ChatHistoryRecord[]> {

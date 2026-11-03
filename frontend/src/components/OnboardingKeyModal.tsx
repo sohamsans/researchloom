@@ -18,18 +18,21 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { ProviderItem, SecurityAssurance } from '../types';
+import { FALLBACK_PROVIDERS_INFO } from '../services/providersFallback';
 
 export const OnboardingKeyModal: React.FC = () => {
   const { isKeyModalOpen, closeKeyModal, user, saveBYOKKeys, runtimeKeys, setRuntimeKey } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'groq' | 'gemini' | 'openrouter' | 'deepseek' | 'nvidia' | 'custom' | 'free-directory' | 'privacy'>('groq');
-  const [providersData, setProvidersData] = useState<ProviderItem[]>([]);
-  const [securityAssurance, setSecurityAssurance] = useState<SecurityAssurance | null>(null);
+  const [activeTab, setActiveTab] = useState<'groq' | 'gemini' | 'claude' | 'openai' | 'openrouter' | 'deepseek' | 'nvidia' | 'custom' | 'free-directory' | 'privacy'>('groq');
+  const [providersData, setProvidersData] = useState<ProviderItem[]>(FALLBACK_PROVIDERS_INFO.providers);
+  const [securityAssurance, setSecurityAssurance] = useState<SecurityAssurance | null>(FALLBACK_PROVIDERS_INFO.security_assurance);
 
   // Form values
   const [keysInput, setKeysInput] = useState<{
     groq: string;
     gemini: string;
+    claude: string;
+    openai: string;
     openrouter: string;
     deepseek: string;
     nvidia: string;
@@ -38,6 +41,8 @@ export const OnboardingKeyModal: React.FC = () => {
   }>({
     groq: '',
     gemini: '',
+    claude: '',
+    openai: '',
     openrouter: '',
     deepseek: '',
     nvidia: '',
@@ -76,6 +81,8 @@ export const OnboardingKeyModal: React.FC = () => {
         setKeysInput({
           groq: runtimeKeys.groq || '',
           gemini: runtimeKeys.gemini || '',
+          claude: runtimeKeys.claude || '',
+          openai: runtimeKeys.openai || '',
           openrouter: runtimeKeys.openrouter || '',
           deepseek: runtimeKeys.deepseek || '',
           nvidia: runtimeKeys.nvidia || '',
@@ -101,6 +108,8 @@ export const OnboardingKeyModal: React.FC = () => {
       const keyMap: Record<string, string> = {
         groq: keysInput.groq.trim(),
         gemini: keysInput.gemini.trim(),
+        claude: keysInput.claude.trim(),
+        openai: keysInput.openai.trim(),
         openrouter: keysInput.openrouter.trim(),
         deepseek: keysInput.deepseek.trim(),
         nvidia: keysInput.nvidia.trim(),
@@ -110,6 +119,8 @@ export const OnboardingKeyModal: React.FC = () => {
 
       if (keyMap.groq) payload.groq_api_key = keyMap.groq;
       if (keyMap.gemini) payload.gemini_api_key = keyMap.gemini;
+      if (keyMap.claude) payload.claude_api_key = keyMap.claude;
+      if (keyMap.openai) payload.openai_api_key = keyMap.openai;
       if (keyMap.openrouter) payload.openrouter_api_key = keyMap.openrouter;
       if (keyMap.deepseek) payload.deepseek_api_key = keyMap.deepseek;
       if (keyMap.nvidia) payload.nvidia_api_key = keyMap.nvidia;
@@ -123,7 +134,7 @@ export const OnboardingKeyModal: React.FC = () => {
       });
 
       // If the current tab being configured has a valid key, explicitly prioritize it
-      if (['groq', 'gemini', 'openrouter', 'deepseek', 'nvidia', 'custom'].includes(activeTab) && keyMap[activeTab]) {
+      if (['groq', 'gemini', 'claude', 'openai', 'openrouter', 'deepseek', 'nvidia', 'custom'].includes(activeTab) && keyMap[activeTab]) {
         setRuntimeKey(activeTab, keyMap[activeTab]);
       }
 
@@ -183,8 +194,10 @@ export const OnboardingKeyModal: React.FC = () => {
         {/* Provider Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b dark:border-[#3c4043] border-slate-200">
           {[
-            { id: 'groq', name: 'Groq Cloud', badge: '14.4k/d Free' },
             { id: 'gemini', name: 'Google Gemini', badge: '1.5k/d Free' },
+            { id: 'groq', name: 'Groq Cloud', badge: '14.4k/d Free' },
+            { id: 'claude', name: 'Anthropic Claude', badge: 'Claude 3.5' },
+            { id: 'openai', name: 'OpenAI', badge: 'GPT-4o' },
             { id: 'openrouter', name: 'OpenRouter', badge: ':free models' },
             { id: 'deepseek', name: 'DeepSeek', badge: '$0.14/1M' },
             { id: 'nvidia', name: 'NVIDIA NIM', badge: '1,000 Credits' },
