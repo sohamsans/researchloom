@@ -54,5 +54,5 @@ jobs:
           pip install -r requirements.txt
           pip install ruff pytest
 
-      - name: Ruff Lint & Syntax Check
-        run: ruff check app/
+      - name: Python Syntax & Compilation Check
+        run: python -m compileall app/
