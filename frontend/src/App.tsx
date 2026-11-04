@@ -34,6 +34,7 @@ import { fetchHealthStatus, discoverPapers, runSelectedPipeline, runReviewPipeli
 import { FormulaStudio } from './components/calculator/FormulaStudio';
 import { StatisticsStudio } from './components/statistics/StatisticsStudio';
 import { SynthesisObjectiveModal } from './components/SynthesisObjectiveModal';
+import { SpotlightModal } from './components/SpotlightModal';
 import {
   HealthStatus,
   PipelineResponse,
@@ -125,6 +126,7 @@ const MainLayout: React.FC = () => {
     doi?: string;
   } | null>(null);
   const [pendingFormulaSnippet, setPendingFormulaSnippet] = useState<string | null>(null);
+  const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
 
   const { activeProvider, activeModel, runtimeKeys, offlineProfile } = useAuth();
 
@@ -168,6 +170,16 @@ const MainLayout: React.FC = () => {
     } catch (e) {
       console.warn('Failed to restore active session:', e);
     }
+
+    // Global Spotlight Keyboard Listener (Ctrl+K or Cmd+K)
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSpotlightOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
   // Rollback Modal State & Last Autosave Timestamp
@@ -1039,6 +1051,36 @@ const MainLayout: React.FC = () => {
       <TabletBridgeModal
         isOpen={isTabletModalOpen}
         onClose={() => setIsTabletModalOpen(false)}
+      />
+
+      {/* Global Spotlight Omni-Search Modal */}
+      <SpotlightModal
+        isOpen={isSpotlightOpen}
+        onClose={() => setIsSpotlightOpen(false)}
+        onOpenStudio={(studioKey) => {
+          if (studioKey === 'stylus') setMainTab('stylus');
+          else if (studioKey === 'latex') setMainTab('formulas');
+          else if (studioKey === 'matrix') setMainTab('matrix');
+        }}
+        onSelectPaper={(paper) => {
+          setSelectedReviewPaper({
+            id: paper.id,
+            title: paper.title,
+            authors: paper.authors || [],
+            year: paper.year,
+            venue: paper.venue,
+            relevance_score: 95,
+            triage_rationale: 'Imported via ResearchLoom Omni-Search.',
+            core_problem: paper.abstract || 'Literature synthesis',
+            methodology: 'Literature Analysis',
+            key_findings: 'Direct vault extraction.',
+            research_gaps: '',
+            critical_remarks: '',
+            doi_link: paper.doi ? `https://doi.org/${paper.doi}` : '',
+            pdf_downloaded: Boolean(paper.has_pdf),
+            source: 'vault'
+          });
+        }}
       />
 
       {/* Offline Researcher Profile Modal */}
