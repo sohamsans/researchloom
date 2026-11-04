@@ -239,8 +239,8 @@ def _is_port_open(port: int, timeout: float = 0.5) -> bool:
 
 def main():
     print("=" * 65)
-    print("  LitBuddy — Autonomous Academic Literature Review & Vault")
-    print("  Version: 4.1.0 (Native Desktop Edition)")
+    print("  ResearchLoom — Autonomous Academic Literature Review & Vault")
+    print("  Version: 4.3.6 (System Tray Daemon & Desktop Edition)")
     print(f"  Backend: http://127.0.0.1:{PORT}")
     print(f"  Data:    {APP_DATA_DIR}")
     print("=" * 65)
@@ -249,6 +249,67 @@ def main():
     backend_thread = threading.Thread(target=_start_backend, daemon=True)
     backend_thread.start()
 
+    # ── System Tray & Window Lifecycle ───────────────────────────────────────
+    tray_icon = None
+    window_ref = [None]
+    is_terminating = [False]
+
+    def _restore_window():
+        if window_ref[0]:
+            try:
+                window_ref[0].show()
+                window_ref[0].restore()
+            except Exception as e:
+                print(f"[Window Restore] {e}")
+
+    # Register wake callback with clipper router
+    try:
+        from app.routers.clipper import register_window_restore_callback
+        register_window_restore_callback(_restore_window)
+    except Exception as e:
+        print(f"[Clipper Register] {e}")
+
+    def _setup_system_tray(icon_image_path):
+        nonlocal tray_icon
+        try:
+            import pystray
+            from PIL import Image
+
+            # Generate or load tray icon image
+            if icon_image_path and os.path.exists(icon_image_path):
+                img = Image.open(icon_image_path)
+            else:
+                img = Image.new("RGBA", (64, 64), color=(37, 99, 235, 255))
+
+            def on_open(icon, item):
+                _restore_window()
+
+            def on_browser(icon, item):
+                import webbrowser
+                webbrowser.open(f"http://127.0.0.1:{PORT}/")
+
+            def on_exit(icon, item):
+                is_terminating[0] = True
+                icon.stop()
+                if window_ref[0]:
+                    try:
+                        window_ref[0].destroy()
+                    except Exception:
+                        pass
+                os._exit(0)
+
+            menu = pystray.Menu(
+                pystray.MenuItem("Open ResearchLoom", on_open, default=True),
+                pystray.MenuItem("Open Web Interface", on_browser),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Quit ResearchLoom", on_exit)
+            )
+
+            tray_icon = pystray.Icon("ResearchLoom", img, "ResearchLoom (Background Active)", menu)
+            threading.Thread(target=tray_icon.run, daemon=True).start()
+        except Exception as e:
+            print(f"[System Tray Warning] Could not initialize system tray: {e}")
+
     # ── Open native desktop window via pywebview ─────────────────────────────
     try:
         import webview
@@ -256,7 +317,7 @@ def main():
         # Allow HTML5 / Blob / Excel / CSV file downloads in pywebview WebView2 window
         webview.settings['ALLOW_DOWNLOADS'] = True
 
-        # Resolve icon path — look next to exe/binary first, then source tree
+        # Resolve icon path
         icon = None
         for candidate in [
             ICON_PATH,
@@ -269,9 +330,11 @@ def main():
                 icon = candidate
                 break
 
+        _setup_system_tray(icon)
+
         window = webview.create_window(
             title="ResearchLoom (Samhita)",
-            html=SPLASH_HTML,          # ← Show splash immediately (no network needed)
+            html=SPLASH_HTML,
             width=1360,
             height=860,
             resizable=True,
@@ -279,12 +342,24 @@ def main():
             background_color="#131314",
             text_select=True,
         )
+        window_ref[0] = window
+
+        def on_window_closing():
+            if not is_terminating[0]:
+                try:
+                    # Hide window instead of exiting so backend stays active for Loom Clipper
+                    window.hide()
+                    return False # Cancel destruction
+                except Exception:
+                    return True
+            return True
+
+        window.events.closing += on_window_closing
 
         def _apply_windows_dark_titlebar():
             if sys.platform == "win32":
                 import ctypes
                 try:
-                    # Direct IntPtr extraction from pywebview WinForms native form
                     if window.native and hasattr(window.native, "Handle"):
                         hwnd = int(window.native.Handle.ToInt64())
                     else:
@@ -293,20 +368,16 @@ def main():
                             hwnd = ctypes.windll.user32.FindWindowW(None, "LitBuddy")
                     if hwnd:
                         val = ctypes.c_int(1)
-                        # DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win11/Win10 20H1+, 19 on older Win10)
                         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
                         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(val), ctypes.sizeof(val))
-                        # DWMWA_CAPTION_COLOR (35) -> #121316 BGR: 0x00161312
                         caption_color = ctypes.c_int(0x00161312)
                         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(caption_color), ctypes.sizeof(caption_color))
-                        # DWMWA_TEXT_COLOR (36) -> #e3e3e3 BGR: 0x00E3E3E3
                         text_color = ctypes.c_int(0x00E3E3E3)
                         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
                 except Exception as e:
                     print(f"[Titlebar Styling] {e}")
             elif sys.platform.startswith("linux"):
                 try:
-                    # Prefer GTK dark theme on Linux desktop environments (GNOME, XFCE, Cinnamon, KDE)
                     import gi
                     gi.require_version('Gtk', '3.0')
                     from gi.repository import Gtk
@@ -318,7 +389,7 @@ def main():
 
         window.events.shown += _apply_windows_dark_titlebar
 
-        # pywebview start — blocks until user closes window
+        # pywebview start
         webview.start(
             debug=False,
             private_mode=False,
@@ -327,9 +398,7 @@ def main():
         )
 
     except ImportError:
-        # Fallback: open in system browser if pywebview is unavailable
-        print("[LitBuddy] pywebview not available — opening in system browser.")
-        # Wait for server synchronously before opening browser
+        print("[ResearchLoom] pywebview not available — running headless backend.")
         for _ in range(60):
             if _is_port_open(PORT):
                 break

@@ -1,12 +1,21 @@
+import os
+import hashlib
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Header, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
 from app.db.database import AsyncSessionLocal
-from app.db.models import PaperDocumentVault, PaperCache
+from app.db.models import PaperDocumentVault, PaperCache, ManuscriptNote
 from app.services.bulk_download_service import fetch_and_vault_paper
 
 router = APIRouter(prefix="/api/clipper", tags=["Loom Clipper Web Extension Bridge"])
+
+# Callback reference to wake desktop pywebview window if registered
+window_restore_callback = None
+
+def register_window_restore_callback(cb):
+    global window_restore_callback
+    window_restore_callback = cb
 
 class CheckPaperRequest(BaseModel):
     doi: Optional[str] = None
@@ -24,6 +33,11 @@ class IngestPaperRequest(BaseModel):
     source_url: Optional[str] = None
     tags: List[str] = []
 
+class QuickNoteRequest(BaseModel):
+    title: Optional[str] = "Clipper Quick Thought"
+    content: str
+    source_url: Optional[str] = None
+
 @router.get("/status")
 async def clipper_status():
     """Heartbeat endpoint for the browser extension to verify local app connectivity."""
@@ -33,6 +47,74 @@ async def clipper_status():
         "version": "4.3.6",
         "vault_ready": True
     }
+
+@router.post("/launch-app")
+async def launch_desktop_app():
+    """
+    Called by the browser extension to wake and bring the ResearchLoom desktop window to the front.
+    """
+    global window_restore_callback
+    if window_restore_callback:
+        try:
+            window_restore_callback()
+            return {"status": "success", "message": "Desktop app window restored to front"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    return {"status": "standalone", "message": "Backend running in server mode without pywebview window"}
+
+@router.post("/quick-note")
+async def save_quick_note(req: QuickNoteRequest):
+    """
+    Saves a quick scratchpad thought or quote directly from the browser extension into ResearchLoom notes.
+    """
+    if not req.content or not req.content.strip():
+        raise HTTPException(status_code=400, detail="Note content cannot be empty")
+
+    async with AsyncSessionLocal() as session:
+        formatted_content = req.content.strip()
+        if req.source_url:
+            formatted_content += f"\n\n*Captured via Loom Clipper from: [{req.source_url}]({req.source_url})*"
+
+        note = ManuscriptNote(
+            title=req.title.strip() if req.title else "Clipper Quick Thought",
+            mode="rich",
+            content=formatted_content
+        )
+        session.add(note)
+        await session.commit()
+        await session.refresh(note)
+
+        return {
+            "status": "success",
+            "note_id": note.id,
+            "title": note.title,
+            "message": "Note saved to ResearchLoom notes"
+        }
+
+@router.get("/search")
+async def search_vault_mini(q: str = ""):
+    """
+    Fast mini vault search endpoint designed specifically for the browser extension popup.
+    """
+    async with AsyncSessionLocal() as session:
+        stmt = select(PaperDocumentVault)
+        res = await session.execute(stmt)
+        all_papers = res.scalars().all()
+
+        q_lower = q.strip().lower()
+        results = []
+        for p in all_papers:
+            if not q_lower or (q_lower in p.title.lower()) or (p.doi and q_lower in p.doi.lower()):
+                results.append({
+                    "id": p.id,
+                    "title": p.title,
+                    "doi": p.doi,
+                    "has_pdf": bool(p.file_path and len(p.file_path) > 0)
+                })
+                if len(results) >= 8:
+                    break
+
+        return {"query": q, "results": results}
 
 @router.post("/check")
 async def check_paper_exists(req: CheckPaperRequest):
@@ -47,7 +129,6 @@ async def check_paper_exists(req: CheckPaperRequest):
         return {"exists": False, "in_vault": False}
 
     async with AsyncSessionLocal() as session:
-        # Check vault
         stmt = select(PaperDocumentVault)
         res = await session.execute(stmt)
         vault_items = res.scalars().all()
@@ -69,7 +150,6 @@ async def check_paper_exists(req: CheckPaperRequest):
                     "has_pdf": bool(v.file_path)
                 }
 
-        # Check Tier 2 PaperCache
         stmt_p = select(PaperCache)
         res_p = await session.execute(stmt_p)
         cached_items = res_p.scalars().all()
@@ -103,7 +183,6 @@ async def ingest_paper(paper: IngestPaperRequest):
         raise HTTPException(status_code=400, detail="Paper title is required")
 
     async with AsyncSessionLocal() as session:
-        # Prevent exact duplicates
         stmt = select(PaperDocumentVault)
         res = await session.execute(stmt)
         existing_vault = res.scalars().all()
@@ -116,12 +195,9 @@ async def ingest_paper(paper: IngestPaperRequest):
                     "message": "Paper already in vault"
                 }
 
-        # Generate safe unique ID
-        import hashlib
         id_source = paper.doi.strip().lower() if paper.doi else paper.title.strip().lower()
         safe_id = hashlib.sha256(id_source.encode('utf-8')).hexdigest()[:32]
 
-        # Create vault record
         new_entry = PaperDocumentVault(
             id=safe_id,
             title=paper.title.strip(),
@@ -135,7 +211,6 @@ async def ingest_paper(paper: IngestPaperRequest):
         await session.commit()
         await session.refresh(new_entry)
 
-        # Trigger background PDF download if a direct or Open Access URL is supplied
         pdf_status = "no_url"
         if paper.pdf_url:
             try:
