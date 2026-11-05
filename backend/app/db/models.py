@@ -22,6 +22,8 @@ class User(Base):
     # Encrypted BYOK Keys
     groq_key_encrypted = Column(Text, nullable=True)
     gemini_key_encrypted = Column(Text, nullable=True)
+    claude_key_encrypted = Column(Text, nullable=True)
+    openai_key_encrypted = Column(Text, nullable=True)
     openrouter_key_encrypted = Column(Text, nullable=True)
     deepseek_key_encrypted = Column(Text, nullable=True)
     nvidia_key_encrypted = Column(Text, nullable=True)

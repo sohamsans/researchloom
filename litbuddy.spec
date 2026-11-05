@@ -47,6 +47,14 @@ hidden_imports = [
     # LLM providers
     'groq',
     'google.genai',
+    'anthropic',
+    'openai',
+    # System Tray & Background Agent
+    'pystray',
+    'pystray._win32',
+    'PIL',
+    'PIL.Image',
+    'PIL.ImageFilter',
     # Routers
     'app.routers.references',
     'app.routers.vault',
@@ -59,6 +67,11 @@ hidden_imports = [
     'app.routers.tablet',
     'app.routers.stats',
     'app.routers.calc',
+    'app.routers.matrix',
+    'app.routers.screening',
+    'app.routers.clipper',
+    'app.routers.sync',
+    'app.routers.updater',
     # Scientific Computing & Statistics
     'scipy',
     'scipy.stats',

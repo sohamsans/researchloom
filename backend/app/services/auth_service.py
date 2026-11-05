@@ -130,6 +130,34 @@ PROVIDERS_METADATA = [
         "is_free": True
     },
     {
+        "id": "claude",
+        "name": "Anthropic Claude",
+        "tier": "Frontier AI BYOK",
+        "default_model": "claude-3-5-sonnet-20241022",
+        "models": [
+            {"id": "claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet (State-of-the-Art)", "cost": "Pay-as-you-go"},
+            {"id": "claude-3-5-haiku-20241022", "name": "Claude 3.5 Haiku (High Speed)", "cost": "Pay-as-you-go"}
+        ],
+        "signup_url": "https://console.anthropic.com/settings/keys",
+        "instructions": "1. Open console.anthropic.com/settings/keys\n2. Click 'Create Key'\n3. Copy key starting with 'sk-ant-'",
+        "quota_estimate": "Direct Anthropic inference with zero middleware markup.",
+        "is_free": False
+    },
+    {
+        "id": "openai",
+        "name": "OpenAI",
+        "tier": "Frontier AI BYOK",
+        "default_model": "gpt-4o-mini",
+        "models": [
+            {"id": "gpt-4o-mini", "name": "GPT-4o Mini (Fast & Cost-Efficient)", "cost": "Pay-as-you-go"},
+            {"id": "gpt-4o", "name": "GPT-4o (Omni Reasoning)", "cost": "Pay-as-you-go"}
+        ],
+        "signup_url": "https://platform.openai.com/api-keys",
+        "instructions": "1. Open platform.openai.com/api-keys\n2. Click 'Create new secret key'\n3. Copy key starting with 'sk-proj-' or 'sk-'",
+        "quota_estimate": "Direct OpenAI inference. GPT-4o-mini costs fractions of a cent per literature synthesis.",
+        "is_free": False
+    },
+    {
         "id": "openrouter",
         "name": "OpenRouter",
         "tier": "Free & Universal",

@@ -134,9 +134,13 @@ class AssistantChatRequest(BaseModel):
     model_name: Optional[str] = None
     groq_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    claude_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None
     deepseek_api_key: Optional[str] = None
     nvidia_api_key: Optional[str] = None
+    custom_api_key: Optional[str] = None
+    custom_base_url: Optional[str] = None
 
 class AssistantChatResponse(BaseModel):
     assistant_reply: str

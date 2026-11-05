@@ -383,6 +383,8 @@ async def get_current_profile(user: User = Depends(get_current_user_required)):
     # Decrypt and mask
     groq_plain = decrypt_key(user.groq_key_encrypted)
     gemini_plain = decrypt_key(user.gemini_key_encrypted)
+    claude_plain = decrypt_key(user.claude_key_encrypted)
+    openai_plain = decrypt_key(user.openai_key_encrypted)
     openrouter_plain = decrypt_key(user.openrouter_key_encrypted)
     deepseek_plain = decrypt_key(user.deepseek_key_encrypted)
     nvidia_plain = decrypt_key(user.nvidia_key_encrypted)
@@ -391,6 +393,8 @@ async def get_current_profile(user: User = Depends(get_current_user_required)):
     configured_keys = {
         "groq": mask_key(groq_plain),
         "gemini": mask_key(gemini_plain),
+        "claude": mask_key(claude_plain),
+        "openai": mask_key(openai_plain),
         "openrouter": mask_key(openrouter_plain),
         "deepseek": mask_key(deepseek_plain),
         "nvidia": mask_key(nvidia_plain),
@@ -423,6 +427,10 @@ async def update_byok_keys(
         user.groq_key_encrypted = encrypt_key(req.groq_api_key) if req.groq_api_key.strip() else None
     if req.gemini_api_key is not None:
         user.gemini_key_encrypted = encrypt_key(req.gemini_api_key) if req.gemini_api_key.strip() else None
+    if req.claude_api_key is not None:
+        user.claude_key_encrypted = encrypt_key(req.claude_api_key) if req.claude_api_key.strip() else None
+    if req.openai_api_key is not None:
+        user.openai_key_encrypted = encrypt_key(req.openai_api_key) if req.openai_api_key.strip() else None
     if req.openrouter_api_key is not None:
         user.openrouter_key_encrypted = encrypt_key(req.openrouter_api_key) if req.openrouter_api_key.strip() else None
     if req.deepseek_api_key is not None:
