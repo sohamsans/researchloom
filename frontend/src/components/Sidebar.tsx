@@ -381,59 +381,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isOpen ? (
           <>
             {/* Quick Utility Shortcuts */}
-            <div className="flex items-center justify-between px-2 py-1 text-xs text-zinc-400">
+            <div className="grid grid-cols-5 gap-1 px-1 py-1 text-xs text-zinc-400 border-b border-white/5 mb-1">
               {onOpenSkills && (
                 <button
                   type="button"
                   onClick={onOpenSkills}
-                  className="flex items-center gap-1 hover:text-zinc-200 transition-colors cursor-pointer"
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-zinc-200 transition-colors cursor-pointer"
                   title="AI Skills & Agents"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="text-[11px]">Skills</span>
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400 mb-0.5" />
+                  <span className="text-[10px] leading-none">Skills</span>
                 </button>
               )}
               {onOpenRollback && (
                 <button
                   type="button"
                   onClick={onOpenRollback}
-                  className="flex items-center gap-1 hover:text-zinc-200 transition-colors cursor-pointer"
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-zinc-200 transition-colors cursor-pointer"
                   title="Rollback History"
                 >
-                  <History className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-[11px]">History</span>
+                  <History className="w-3.5 h-3.5 text-emerald-400 mb-0.5" />
+                  <span className="text-[10px] leading-none">History</span>
                 </button>
               )}
               {onOpenTutorial && (
                 <button
                   type="button"
                   onClick={onOpenTutorial}
-                  className="flex items-center gap-1 hover:text-zinc-200 transition-colors cursor-pointer"
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-zinc-200 transition-colors cursor-pointer"
                   title="Tutorial Tour"
                 >
-                  <HelpCircle className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="text-[11px]">Tour</span>
+                  <HelpCircle className="w-3.5 h-3.5 text-zinc-400 mb-0.5" />
+                  <span className="text-[10px] leading-none">Tour</span>
                 </button>
               )}
               <a
                 href="https://github.com/sohamsans/researchloom/issues"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-zinc-400 hover:text-sky-300 transition-colors cursor-pointer"
-                title="GitHub Repo & Issues — Submit bugs with screenshots"
+                className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-sky-300 transition-colors cursor-pointer text-zinc-400"
+                title="GitHub Repo & Issues"
               >
-                <Github className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-[11px]">GitHub</span>
+                <Github className="w-3.5 h-3.5 text-zinc-400 mb-0.5" />
+                <span className="text-[10px] leading-none">GitHub</span>
               </a>
               {onOpenUpdate && (
                 <button
                   type="button"
                   onClick={onOpenUpdate}
-                  className="flex items-center gap-1 text-zinc-400 hover:text-sky-300 transition-colors cursor-pointer bg-transparent border-none p-0"
-                  title="Check for Software Updates & View Changelog"
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-sky-300 transition-colors cursor-pointer bg-transparent border-none"
+                  title="Check for Software Updates"
                 >
-                  <Download className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="text-[11px]">Update</span>
+                  <Download className="w-3.5 h-3.5 text-zinc-400 mb-0.5" />
+                  <span className="text-[10px] leading-none">Update</span>
                 </button>
               )}
             </div>
