@@ -1,11 +1,11 @@
 # UTF-8
 #
-# Windows PE Version Resource for LitBuddy
+# Windows PE Version Resource for ResearchLoom
 #
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(4, 2, 0, 1),
-    prodvers=(4, 2, 0, 1),
+    filevers=(4, 3, 7, 0),
+    prodvers=(4, 3, 7, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -19,15 +19,15 @@ VSVersionInfo(
         StringTable(
           '040904B0',
           [
-            StringStruct('CompanyName', 'sohamsans'),
-            StringStruct('FileDescription', 'ResearchLoom (Samhita) - Autonomous AI Literature Synthesis Engine'),
-            StringStruct('FileVersion', '4.2.0.1'),
+            StringStruct('CompanyName', 'ResearchLoom Open Source Team'),
+            StringStruct('FileDescription', 'ResearchLoom - Autonomous AI Literature Synthesis Engine'),
+            StringStruct('FileVersion', '4.3.7.0'),
             StringStruct('InternalName', 'ResearchLoom'),
-            StringStruct('LegalCopyright', 'Copyright (c) 2026 sohamsans. MIT License.'),
+            StringStruct('LegalCopyright', 'Copyright (c) 2026 ResearchLoom Authors. PolyForm Noncommercial License 1.0.0.'),
             StringStruct('OriginalFilename', 'ResearchLoom.exe'),
-            StringStruct('ProductName', 'ResearchLoom (Samhita) Academic Desktop'),
-            StringStruct('ProductVersion', '4.2.0-beta.1'),
-            StringStruct('Comments', 'Free forever open-source research synthesis engine built by sohamsans.')
+            StringStruct('ProductName', 'ResearchLoom Academic Desktop'),
+            StringStruct('ProductVersion', '4.3.7'),
+            StringStruct('Comments', 'Autonomous literature synthesis engine built for researchers and scholars.')
           ]
         )
       ]
