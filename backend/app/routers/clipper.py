@@ -58,8 +58,8 @@ async def launch_desktop_app():
         try:
             window_restore_callback()
             return {"status": "success", "message": "Desktop app window restored to front"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        except Exception:
+            return {"status": "error", "message": "Unable to restore window"}
     return {"status": "standalone", "message": "Backend running in server mode without pywebview window"}
 
 @router.post("/quick-note")

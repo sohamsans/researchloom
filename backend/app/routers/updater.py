@@ -113,6 +113,18 @@ async def get_download_status():
     """Poll current background download progress."""
     return download_progress
 
+ALLOWED_HOSTS = ["github.com", "objects.githubusercontent.com", "api.github.com"]
+
+def validate_release_url(url_str: str) -> str:
+    """Validate that the download URL strictly targets official GitHub release assets."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url_str)
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="Only HTTPS download URLs are permitted")
+    if parsed.netloc.lower() not in ALLOWED_HOSTS:
+        raise HTTPException(status_code=400, detail="Untrusted download host")
+    return url_str
+
 @router.post("/download")
 async def start_update_download(asset_url: str, version: str):
     """
@@ -121,6 +133,9 @@ async def start_update_download(asset_url: str, version: str):
     global download_progress
     if download_progress["status"] == "downloading":
         return {"status": "already_downloading"}
+
+    # Strict URL validation against SSRF
+    safe_url = validate_release_url(asset_url)
 
     # Determine destination directory
     app_mod = sys.modules.get('backend.litbuddy_app', None)
@@ -131,11 +146,18 @@ async def start_update_download(asset_url: str, version: str):
     else:
         app_data = os.path.expanduser("~/.local/share/ResearchLoom/app_data")
 
-    dest_dir = os.path.join(app_data, "updates")
+    dest_dir = os.path.abspath(os.path.join(app_data, "updates"))
     os.makedirs(dest_dir, exist_ok=True)
 
-    filename = asset_url.split("/")[-1]
-    dest_path = os.path.join(dest_dir, filename)
+    # Sanitize filename strictly against path traversal
+    raw_filename = os.path.basename(safe_url.split("?")[0])
+    clean_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', raw_filename)
+    if not clean_filename or clean_filename.startswith('.'):
+        clean_filename = "ResearchLoom_update.bin"
+
+    dest_path = os.path.abspath(os.path.join(dest_dir, clean_filename))
+    if not dest_path.startswith(dest_dir):
+        raise HTTPException(status_code=400, detail="Invalid target filename path")
 
     download_progress = {
         "status": "downloading",
@@ -152,7 +174,7 @@ async def start_update_download(asset_url: str, version: str):
         headers = {"User-Agent": "ResearchLoom-Updater"}
         try:
             async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
-                async with client.stream("GET", asset_url, headers=headers) as resp:
+                async with client.stream("GET", safe_url, headers=headers) as resp:
                     if resp.status_code != 200:
                         download_progress["status"] = "error"
                         download_progress["error_message"] = f"HTTP {resp.status_code} during download"
@@ -174,7 +196,7 @@ async def start_update_download(asset_url: str, version: str):
                     download_progress["percent"] = 100
         except Exception as e:
             download_progress["status"] = "error"
-            download_progress["error_message"] = str(e)
+            download_progress["error_message"] = "Download error occurred"
 
     asyncio.create_task(_download_worker())
     return {"status": "started", "destination": dest_path}
@@ -188,22 +210,33 @@ async def apply_update():
     if download_progress["status"] != "ready" or not download_progress.get("file_path"):
         raise HTTPException(status_code=400, detail="Update is not downloaded or ready to apply")
 
-    file_path = download_progress["file_path"]
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Downloaded update file not found on disk")
+    file_path = os.path.abspath(download_progress["file_path"])
+    
+    # Verify file resides inside updates folder
+    app_mod = sys.modules.get('backend.litbuddy_app', None)
+    if app_mod and hasattr(app_mod, 'APP_DATA_DIR'):
+        app_data = app_mod.APP_DATA_DIR
+    elif sys.platform == "win32":
+        app_data = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ResearchLoom", "app_data")
+    else:
+        app_data = os.path.expanduser("~/.local/share/ResearchLoom/app_data")
+    expected_dir = os.path.abspath(os.path.join(app_data, "updates"))
+
+    if not file_path.startswith(expected_dir) or not os.path.isfile(file_path):
+        raise HTTPException(status_code=400, detail="Invalid executable path")
 
     # Windows installer execution
-    if sys.platform == "win32":
+    if sys.platform == "win32" and file_path.lower().endswith((".exe", ".msi")):
         import subprocess
-        # If it is an installer .exe, run it
-        subprocess.Popen([file_path], close_fds=True)
-        # Terminate current app cleanly after 1 second so installer can overwrite
+        subprocess.Popen([file_path], close_fds=True, shell=False)
         asyncio.get_event_loop().call_later(1.0, lambda: os._exit(0))
         return {"status": "applying", "action": "installer_launched"}
-    elif sys.platform.startswith("linux"):
+    elif sys.platform.startswith("linux") and file_path.endswith(".AppImage"):
         import subprocess
-        os.chmod(file_path, 0o755)
-        subprocess.Popen([file_path], close_fds=True)
+        import stat
+        # Restrict permissions safely to 0700 (user rwx only)
+        os.chmod(file_path, stat.S_IRWXU)
+        subprocess.Popen([file_path], close_fds=True, shell=False)
         asyncio.get_event_loop().call_later(1.0, lambda: os._exit(0))
         return {"status": "applying", "action": "appimage_launched"}
 

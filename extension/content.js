@@ -27,6 +27,11 @@
     return values;
   }
 
+  // Domain check helpers using strict hostname suffix matching
+  const host = window.location.hostname.toLowerCase();
+  const isArxiv = host === 'arxiv.org' || host.endsWith('.arxiv.org');
+  const isNcbi = host === 'ncbi.nlm.nih.gov' || host.endsWith('.ncbi.nlm.nih.gov');
+
   // 1. Title Extraction
   let title = getMeta([
     'citation_title',
@@ -37,10 +42,10 @@
   ]);
   if (!title) {
     // Domain specific
-    if (window.location.hostname.includes('arxiv.org')) {
+    if (isArxiv) {
       const el = document.querySelector('h1.title');
       if (el) title = el.innerText.replace(/^Title:\s*/i, '').trim();
-    } else if (window.location.hostname.includes('ncbi.nlm.nih.gov')) {
+    } else if (isNcbi) {
       const el = document.querySelector('h1.heading-title');
       if (el) title = el.innerText.trim();
     } else {
@@ -56,10 +61,10 @@
     'author'
   ]);
   if (authors.length === 0) {
-    if (window.location.hostname.includes('arxiv.org')) {
+    if (isArxiv) {
       const els = document.querySelectorAll('.authors a');
       authors = Array.from(els).map(a => a.innerText.trim());
-    } else if (window.location.hostname.includes('ncbi.nlm.nih.gov')) {
+    } else if (isNcbi) {
       const els = document.querySelectorAll('.authors-list .full-name');
       authors = Array.from(els).map(a => a.innerText.trim());
     }
@@ -98,7 +103,7 @@
     'prism.publicationName',
     'dc.source'
   ]);
-  if (!venue && window.location.hostname.includes('arxiv.org')) {
+  if (!venue && isArxiv) {
     venue = 'arXiv Preprint';
   }
 
@@ -106,7 +111,7 @@
   let pdf_url = getMeta([
     'citation_pdf_url'
   ]);
-  if (!pdf_url && window.location.hostname.includes('arxiv.org')) {
+  if (!pdf_url && isArxiv) {
     const pdfLink = document.querySelector('a.download-pdf');
     if (pdfLink && pdfLink.href) pdf_url = pdfLink.href;
   }
@@ -118,7 +123,7 @@
     'description',
     'og:description'
   ]);
-  if (!abstract && window.location.hostname.includes('arxiv.org')) {
+  if (!abstract && isArxiv) {
     const el = document.querySelector('blockquote.abstract');
     if (el) abstract = el.innerText.replace(/^Abstract:\s*/i, '').trim();
   }
