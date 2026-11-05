@@ -35,6 +35,7 @@ import { FormulaStudio } from './components/calculator/FormulaStudio';
 import { StatisticsStudio } from './components/statistics/StatisticsStudio';
 import { SynthesisObjectiveModal } from './components/SynthesisObjectiveModal';
 import { SpotlightModal } from './components/SpotlightModal';
+import { UpdateModal } from './components/UpdateModal';
 import {
   HealthStatus,
   PipelineResponse,
@@ -127,6 +128,7 @@ const MainLayout: React.FC = () => {
   } | null>(null);
   const [pendingFormulaSnippet, setPendingFormulaSnippet] = useState<string | null>(null);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
 
   const { activeProvider, activeModel, runtimeKeys, offlineProfile } = useAuth();
 
@@ -610,6 +612,7 @@ const MainLayout: React.FC = () => {
         onOpenSkills={() => setIsSkillModalOpen(true)}
         onOpenTutorial={() => setIsTourOpen(true)}
         onOpenRollback={() => setIsRollbackOpen(true)}
+        onOpenUpdate={() => setIsUpdateOpen(true)}
         onSelectTopic={(topic) => {
           setCurrentTopic(topic);
           const norm = topic.toLowerCase().trim();
@@ -1102,6 +1105,12 @@ const MainLayout: React.FC = () => {
         pooledQueries={queryHistory}
         candidateCount={selectedPaperIds.size}
         currentTopic={currentTopic}
+      />
+
+      {/* Software Auto-Updater Modal */}
+      <UpdateModal
+        isOpen={isUpdateOpen}
+        onClose={() => setIsUpdateOpen(false)}
       />
 
       <OnboardingKeyModal />

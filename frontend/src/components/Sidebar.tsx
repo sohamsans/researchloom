@@ -43,6 +43,7 @@ interface SidebarProps {
   onOpenSkills?: () => void;
   onOpenTutorial?: () => void;
   onOpenRollback?: () => void;
+  onOpenUpdate?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -54,7 +55,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   onOpenSkills,
   onOpenTutorial,
-  onOpenRollback
+  onOpenRollback,
+  onOpenUpdate
 }) => {
   const { offlineProfile, openAuthModal, openKeyModal } = useAuth();
   const [recentSearches, setRecentSearches] = useState<SavedSearchItem[]>([]);
@@ -423,6 +425,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Github className="w-3.5 h-3.5 text-zinc-400" />
                 <span className="text-[11px]">GitHub</span>
               </a>
+              {onOpenUpdate && (
+                <button
+                  type="button"
+                  onClick={onOpenUpdate}
+                  className="flex items-center gap-1 text-zinc-400 hover:text-sky-300 transition-colors cursor-pointer bg-transparent border-none p-0"
+                  title="Check for Software Updates & View Changelog"
+                >
+                  <Download className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="text-[11px]">Update</span>
+                </button>
+              )}
             </div>
 
             {/* Profile Bar */}
