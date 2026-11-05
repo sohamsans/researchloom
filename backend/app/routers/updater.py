@@ -32,9 +32,10 @@ class CheckUpdateResponse(BaseModel):
     release_name: str
     release_notes: str
     published_at: str
-    download_url: Optional[str]
-    asset_name: Optional[str]
-    asset_size_bytes: int
+    asset_id: Optional[int] = None
+    download_url: Optional[str] = None
+    asset_name: Optional[str] = None
+    asset_size_bytes: int = 0
 
 def parse_semver(v: str) -> tuple:
     """Parse semver string into comparable tuple: 'v4.3.6' -> (4, 3, 6)."""
@@ -103,6 +104,7 @@ async def check_for_updates():
         release_name=data.get("name", f"ResearchLoom {latest_tag}"),
         release_notes=data.get("body", "No release notes provided."),
         published_at=data.get("published_at", ""),
+        asset_id=matched_asset.get("id") if matched_asset else None,
         download_url=matched_asset.get("browser_download_url") if matched_asset else None,
         asset_name=matched_asset.get("name") if matched_asset else None,
         asset_size_bytes=matched_asset.get("size", 0) if matched_asset else 0
@@ -126,16 +128,48 @@ def validate_release_url(url_str: str) -> str:
     return url_str
 
 @router.post("/download")
-async def start_update_download(asset_url: str, version: str):
+async def start_update_download(asset_url: Optional[str] = None, asset_id: Optional[int] = None, version: Optional[str] = None):
     """
     Stream and download the update binary in the background.
+    Constructs the download URL strictly from verified GitHub Release API metadata to eliminate SSRF.
     """
     global download_progress
     if download_progress["status"] == "downloading":
         return {"status": "already_downloading"}
 
-    # Strict URL validation against SSRF
-    safe_url = validate_release_url(asset_url)
+    # Query official GitHub release metadata server-side to resolve trusted asset URL
+    headers = {"User-Agent": "ResearchLoom-Updater"}
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        try:
+            res = await client.get(GITHUB_RELEASES_URL, headers=headers)
+            if res.status_code != 200:
+                raise HTTPException(status_code=502, detail="Failed to verify release metadata from GitHub")
+            release_data = res.json()
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Network error verifying release: {str(e)}")
+
+    verified_assets = release_data.get("assets", [])
+    target_asset = None
+
+    if asset_id is not None:
+        for a in verified_assets:
+            if a.get("id") == asset_id:
+                target_asset = a
+                break
+    elif asset_url:
+        for a in verified_assets:
+            if a.get("browser_download_url") == asset_url:
+                target_asset = a
+                break
+
+    if not target_asset:
+        target_asset = get_platform_asset_match(verified_assets)
+
+    if not target_asset or not target_asset.get("browser_download_url"):
+        raise HTTPException(status_code=404, detail="No verified release asset found for platform")
+
+    safe_url = target_asset["browser_download_url"]
+    target_version = release_data.get("tag_name", version or "latest").lstrip("v")
 
     # Determine destination directory
     app_mod = sys.modules.get('backend.litbuddy_app', None)
@@ -149,8 +183,8 @@ async def start_update_download(asset_url: str, version: str):
     dest_dir = os.path.abspath(os.path.join(app_data, "updates"))
     os.makedirs(dest_dir, exist_ok=True)
 
-    # Sanitize filename strictly against path traversal
-    raw_filename = os.path.basename(safe_url.split("?")[0])
+    # Sanitize filename strictly using target asset name
+    raw_filename = target_asset.get("name") or os.path.basename(safe_url.split("?")[0])
     clean_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', raw_filename)
     if not clean_filename or clean_filename.startswith('.'):
         clean_filename = "ResearchLoom_update.bin"
@@ -166,15 +200,15 @@ async def start_update_download(asset_url: str, version: str):
         "total_bytes": 0,
         "file_path": dest_path,
         "error_message": None,
-        "target_version": version
+        "target_version": target_version
     }
 
     async def _download_worker():
         global download_progress
-        headers = {"User-Agent": "ResearchLoom-Updater"}
+        req_headers = {"User-Agent": "ResearchLoom-Updater"}
         try:
             async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
-                async with client.stream("GET", safe_url, headers=headers) as resp:
+                async with client.stream("GET", safe_url, headers=req_headers) as resp:
                     if resp.status_code != 200:
                         download_progress["status"] = "error"
                         download_progress["error_message"] = f"HTTP {resp.status_code} during download"
@@ -194,7 +228,7 @@ async def start_update_download(asset_url: str, version: str):
 
                     download_progress["status"] = "ready"
                     download_progress["percent"] = 100
-        except Exception as e:
+        except Exception:
             download_progress["status"] = "error"
             download_progress["error_message"] = "Download error occurred"
 
@@ -227,16 +261,14 @@ async def apply_update():
 
     # Windows installer execution
     if sys.platform == "win32" and file_path.lower().endswith((".exe", ".msi")):
-        import subprocess
-        subprocess.Popen([file_path], close_fds=True, shell=False)
+        os.startfile(file_path)
         asyncio.get_event_loop().call_later(1.0, lambda: os._exit(0))
         return {"status": "applying", "action": "installer_launched"}
     elif sys.platform.startswith("linux") and file_path.endswith(".AppImage"):
-        import subprocess
         import stat
         # Restrict permissions safely to 0700 (user rwx only)
         os.chmod(file_path, stat.S_IRWXU)
-        subprocess.Popen([file_path], close_fds=True, shell=False)
+        pid = os.spawnv(os.P_NOWAIT, file_path, [file_path])
         asyncio.get_event_loop().call_later(1.0, lambda: os._exit(0))
         return {"status": "applying", "action": "appimage_launched"}
 

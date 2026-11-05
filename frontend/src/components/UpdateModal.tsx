@@ -18,6 +18,7 @@ interface UpdateInfo {
   release_name: string;
   release_notes: string;
   published_at: string;
+  asset_id?: number;
   download_url?: string;
   asset_name?: string;
   asset_size_bytes: number;
@@ -64,15 +65,25 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ isOpen, onClose }) => 
   };
 
   const handleStartDownload = async () => {
-    if (!updateInfo?.download_url) return;
+    if (!updateInfo) return;
     setDownloading(true);
     setError(null);
 
     try {
-      const res = await fetch(
-        `/api/updater/download?asset_url=${encodeURIComponent(updateInfo.download_url)}&version=${encodeURIComponent(updateInfo.latest_version)}`,
-        { method: 'POST' }
-      );
+      const queryParams = new URLSearchParams();
+      if (updateInfo.asset_id) {
+        queryParams.set('asset_id', updateInfo.asset_id.toString());
+      }
+      if (updateInfo.download_url) {
+        queryParams.set('asset_url', updateInfo.download_url);
+      }
+      if (updateInfo.latest_version) {
+        queryParams.set('version', updateInfo.latest_version);
+      }
+
+      const res = await fetch(`/api/updater/download?${queryParams.toString()}`, {
+        method: 'POST'
+      });
       if (res.ok) {
         // Start polling status
         pollDownloadStatus();
