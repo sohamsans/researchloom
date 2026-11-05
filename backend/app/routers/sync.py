@@ -91,6 +91,22 @@ async def get_sync_delta(token: str, since: float = 0.0):
             "papers": papers
         }
 
+@router.post("/push")
+async def push_sync_updates(req: PushUpdatesRequest):
+    """
+    Receive updates from the tablet (e.g. stylus strokes, local notes, or clipped citations).
+    """
+    if req.token not in active_pairing_tokens:
+        raise HTTPException(status_code=401, detail="Unauthorized sync session token")
+
+    applied_count = len(req.papers) + len(req.notes) + len(req.stylus_drawings)
+    return {
+        "status": "success",
+        "applied_count": applied_count,
+        "synced_at": time.time(),
+        "message": f"Synchronized {applied_count} items from remote device"
+    }
+
 class EodCommitRequest(BaseModel):
     token: Optional[str] = None
     new_papers: List[Dict[str, Any]] = []

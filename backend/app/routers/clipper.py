@@ -38,6 +38,11 @@ class EvaluateRelevanceRequest(BaseModel):
     abstract: Optional[str] = None
     research_goal: Optional[str] = None
 
+class QuickNoteRequest(BaseModel):
+    title: Optional[str] = "Clipper Quick Thought"
+    content: str
+    source_url: Optional[str] = None
+
 @router.post("/evaluate")
 async def evaluate_clipper_relevance(req: EvaluateRelevanceRequest):
     """

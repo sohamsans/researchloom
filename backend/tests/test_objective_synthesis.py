@@ -7,7 +7,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from app.models.schemas import RawPaperMetadata, SelectedPipelineRequest
 from app.services.llm_provider import UniversalLLMClient
+import pytest
 
+@pytest.mark.asyncio
 async def test_guided_objective():
     print("--- Testing Guided Research Objective Triage ---")
     llm = UniversalLLMClient()
