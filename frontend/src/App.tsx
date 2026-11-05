@@ -36,6 +36,8 @@ import { StatisticsStudio } from './components/statistics/StatisticsStudio';
 import { SynthesisObjectiveModal } from './components/SynthesisObjectiveModal';
 import { SpotlightModal } from './components/SpotlightModal';
 import { UpdateModal } from './components/UpdateModal';
+import { P2PSyncModal } from './components/P2PSyncModal';
+import { McpControlModal } from './components/McpControlModal';
 import {
   HealthStatus,
   PipelineResponse,
@@ -82,6 +84,8 @@ const MainLayout: React.FC = () => {
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
   const [isTabletModalOpen, setIsTabletModalOpen] = useState(false);
   const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false);
+  const [isP2PSyncOpen, setIsP2PSyncOpen] = useState(false);
+  const [isMcpOpen, setIsMcpOpen] = useState(false);
 
   // PDF Viewer Modal
   const [viewerVaultId, setViewerVaultId] = useState<string | null>(null);
@@ -675,6 +679,8 @@ const MainLayout: React.FC = () => {
           onOpenSkills={() => setIsSkillModalOpen(true)}
           onOpenTabletBridge={() => setIsTabletModalOpen(true)}
           onOpenRollback={() => setIsRollbackOpen(true)}
+          onOpenP2PSync={() => setIsP2PSyncOpen(true)}
+          onOpenMcp={() => setIsMcpOpen(true)}
           lastAutosave={lastAutosaveTime}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
@@ -1105,6 +1111,18 @@ const MainLayout: React.FC = () => {
         pooledQueries={queryHistory}
         candidateCount={selectedPaperIds.size}
         currentTopic={currentTopic}
+      />
+
+      {/* End-of-Day P2P Vault Sync Modal */}
+      <P2PSyncModal
+        isOpen={isP2PSyncOpen}
+        onClose={() => setIsP2PSyncOpen(false)}
+      />
+
+      {/* MCP Server & Tools Control Center Modal */}
+      <McpControlModal
+        isOpen={isMcpOpen}
+        onClose={() => setIsMcpOpen(false)}
       />
 
       {/* Software Auto-Updater Modal */}

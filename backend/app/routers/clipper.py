@@ -33,10 +33,46 @@ class IngestPaperRequest(BaseModel):
     source_url: Optional[str] = None
     tags: List[str] = []
 
-class QuickNoteRequest(BaseModel):
-    title: Optional[str] = "Clipper Quick Thought"
-    content: str
-    source_url: Optional[str] = None
+class EvaluateRelevanceRequest(BaseModel):
+    title: str
+    abstract: Optional[str] = None
+    research_goal: Optional[str] = None
+
+@router.post("/evaluate")
+async def evaluate_clipper_relevance(req: EvaluateRelevanceRequest):
+    """
+    Sub-second on-tab relevance check for the Chrome extension popup.
+    Scores paper 1-5 and gives a 1-sentence fit evaluation against active research goal.
+    """
+    from app.services.llm_provider import UniversalLLMClient, clean_json_text
+
+    llm = UniversalLLMClient()
+    goal = req.research_goal or "General academic literature review and empirical rigor"
+    abstract_text = (req.abstract or req.title)[:1200]
+
+    system_prompt = (
+        "You are an academic screening specialist. Evaluate whether the candidate paper is relevant to the research goal.\n"
+        "Return ONLY a raw JSON object with keys:\n"
+        '{"score": <integer from 1 to 5>, "verdict": "<Relevant|Borderline|Irrelevant>", "rationale": "<1 concise sentence under 25 words explaining why>"}'
+    )
+    user_prompt = f"Research Goal: {goal}\n\nPaper Title: {req.title}\nAbstract: {abstract_text}"
+
+    try:
+        raw_res = await llm.generate_response(system_prompt, user_prompt, max_tokens=150, response_json=True)
+        cleaned = clean_json_text(raw_res)
+        import json
+        data = json.loads(cleaned)
+        return {
+            "score": data.get("score", 3),
+            "verdict": data.get("verdict", "Borderline"),
+            "rationale": data.get("rationale", "Paper touches relevant methodological themes.")
+        }
+    except Exception as e:
+        return {
+            "score": 3,
+            "verdict": "Unchecked",
+            "rationale": "Heuristic evaluation: review abstract to determine relevance."
+        }
 
 @router.get("/status")
 async def clipper_status():

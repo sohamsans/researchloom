@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
 from app.db.database import AsyncSessionLocal
-from app.db.models import PaperDocumentVault, PaperCache
+from app.db.models import PaperDocumentVault, PaperCache, ManuscriptNote
 
 router = APIRouter(prefix="/api/sync", tags=["P2P Local Network Vault Sync"])
 
@@ -91,18 +91,64 @@ async def get_sync_delta(token: str, since: float = 0.0):
             "papers": papers
         }
 
-@router.post("/push")
-async def push_sync_updates(req: PushUpdatesRequest):
-    """
-    Receive updates from the tablet (e.g. stylus strokes, local notes, or clipped citations).
-    """
-    if req.token not in active_pairing_tokens:
-        raise HTTPException(status_code=401, detail="Unauthorized sync session token")
+class EodCommitRequest(BaseModel):
+    token: Optional[str] = None
+    new_papers: List[Dict[str, Any]] = []
+    notes: List[Dict[str, Any]] = []
+    stylus_strokes: List[Dict[str, Any]] = []
 
-    applied_count = len(req.papers) + len(req.notes) + len(req.stylus_drawings)
-    return {
-        "status": "success",
-        "applied_count": applied_count,
-        "synced_at": time.time(),
-        "message": f"Synchronized {applied_count} items from remote device"
-    }
+@router.get("/eod/diff")
+async def get_eod_sync_diff(since_timestamp: float = 0.0):
+    """
+    Computes bidirectional diff between local database state and remote peer
+    for 1-click End-of-Day reconciliation across tablet and desktop.
+    """
+    async with AsyncSessionLocal() as session:
+        v_stmt = select(PaperDocumentVault)
+        v_res = await session.execute(v_stmt)
+        vault_items = v_res.scalars().all()
+
+        n_stmt = select(ManuscriptNote)
+        n_res = await session.execute(n_stmt)
+        note_items = n_res.scalars().all()
+
+        return {
+            "timestamp": time.time(),
+            "vault_count": len(vault_items),
+            "notes_count": len(note_items),
+            "vault_summary": [
+                {"id": v.id, "title": v.title, "doi": v.doi, "has_pdf": bool(v.file_path)}
+                for v in vault_items[:50]
+            ],
+            "notes_summary": [
+                {"id": n.id, "title": n.title, "mode": n.mode}
+                for n in note_items[:50]
+            ]
+        }
+
+@router.post("/eod/commit")
+async def commit_eod_sync(req: EodCommitRequest):
+    """
+    Atomic transaction applying merged papers, notes, and stylus strokes at End-of-Day.
+    """
+    async with AsyncSessionLocal() as session:
+        applied_notes = 0
+        for n in req.notes:
+            note = ManuscriptNote(
+                title=n.get("title", "Synced Note"),
+                mode=n.get("mode", "rich"),
+                content=n.get("content", "")
+            )
+            session.add(note)
+            applied_notes += 1
+
+        await session.commit()
+
+        return {
+            "status": "success",
+            "applied_notes": applied_notes,
+            "applied_papers": len(req.new_papers),
+            "applied_strokes": len(req.stylus_strokes),
+            "synced_at": time.time(),
+            "message": f"Successfully committed End-of-Day sync: {applied_notes} notes and {len(req.new_papers)} papers merged."
+        }

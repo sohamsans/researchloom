@@ -149,6 +149,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('p-venue').textContent = paper.venue || 'Journal';
     document.getElementById('p-pdf').textContent = paper.pdf_url ? 'PDF' : 'Abstract';
 
+    if (paper.citations_count !== undefined && paper.citations_count !== null) {
+      const citesTag = document.getElementById('p-cites');
+      citesTag.style.display = 'inline';
+      citesTag.textContent = `${paper.citations_count} Cites`;
+    }
+
     if (isOnline) {
       await checkVaultDuplicate(paper);
     } else {
@@ -156,7 +162,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } else {
     document.getElementById('p-title').textContent = 'No academic publication detected on this tab';
-    document.getElementById('p-authors').textContent = 'Navigate to arXiv, PubMed, or any journal page';
+    document.getElementById('p-authors').textContent = 'Navigate to Google Scholar, arXiv, PubMed, or any journal page';
+  }
+
+  // Active On-Tab Relevance Check Action
+  const relBtn = document.getElementById('check-relevance-btn');
+  if (relBtn) {
+    relBtn.addEventListener('click', async () => {
+      if (!currentPaper) return;
+      relBtn.disabled = true;
+      relBtn.textContent = 'Analyzing...';
+      const box = document.getElementById('relevance-box');
+      const badge = document.getElementById('relevance-score-badge');
+      const rationale = document.getElementById('relevance-rationale-text');
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/clipper/evaluate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: currentPaper.title,
+            abstract: currentPaper.abstract
+          })
+        });
+        if (res.ok) {
+          const evalData = await res.json();
+          box.style.display = 'block';
+          const score = evalData.score || 3;
+          badge.textContent = `Score: ${score}/5 • ${evalData.verdict}`;
+          if (score >= 4) {
+            badge.style.background = '#065f46';
+            badge.style.color = '#34d399';
+          } else if (score === 3) {
+            badge.style.background = '#78350f';
+            badge.style.color = '#fbbf24';
+          } else {
+            badge.style.background = '#7f1d1d';
+            badge.style.color = '#f87171';
+          }
+          rationale.textContent = evalData.rationale || 'Evaluated against active research criteria.';
+          relBtn.textContent = '⚡ Re-check Relevance';
+        } else {
+          relBtn.textContent = 'Evaluation Failed';
+        }
+      } catch (err) {
+        relBtn.textContent = 'Backend Offline';
+      } finally {
+        relBtn.disabled = false;
+      }
+    });
   }
 
   // Clip Button Action

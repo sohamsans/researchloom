@@ -21,7 +21,9 @@ import {
   Github,
   ExternalLink,
   PanelLeftOpen,
-  PanelLeftClose
+  PanelLeftClose,
+  ArrowLeftRight,
+  Cpu
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { HealthStatus } from '../types';
@@ -39,6 +41,8 @@ interface HeaderProps {
   onOpenSkills?: () => void;
   onOpenTabletBridge?: () => void;
   onOpenRollback?: () => void;
+  onOpenP2PSync?: () => void;
+  onOpenMcp?: () => void;
   lastAutosave?: Date;
   onToggleSidebar?: () => void;
   isSidebarOpen?: boolean;
@@ -53,6 +57,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSkills,
   onOpenTabletBridge,
   onOpenRollback,
+  onOpenP2PSync,
+  onOpenMcp,
   lastAutosave,
   onToggleSidebar,
   isSidebarOpen
@@ -138,6 +144,32 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[11px] font-mono text-zinc-400 hidden 2xl:inline">Autosaved</span>
             <History className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
+        )}
+
+        {/* End-of-Day P2P Sync Pill */}
+        {onOpenP2PSync && (
+          <button
+            type="button"
+            onClick={onOpenP2PSync}
+            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs cursor-pointer"
+            title="End-of-Day P2P Vault Sync (Reconcile Tablet & Desktop over local Wi-Fi)"
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden lg:inline">P2P Sync</span>
+          </button>
+        )}
+
+        {/* MCP Control Center Pill */}
+        {onOpenMcp && (
+          <button
+            type="button"
+            onClick={onOpenMcp}
+            className="hidden lg:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs cursor-pointer"
+            title="Model Context Protocol (MCP) Server Control & Claude Desktop Export"
+          >
+            <Cpu className="w-3.5 h-3.5 text-purple-400" />
+            <span>MCP</span>
           </button>
         )}
 

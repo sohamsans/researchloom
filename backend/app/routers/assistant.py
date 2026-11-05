@@ -1,8 +1,33 @@
 from fastapi import APIRouter, HTTPException
+from typing import Optional, List
+from pydantic import BaseModel
 from app.models.schemas import AssistantChatRequest, AssistantChatResponse, PaperQARequest, PaperQAResponse
 from app.services.assistant_service import generate_assistant_response, answer_paper_qa
+from app.services.council_service import MultiLLMCouncilService, CouncilConsensusResult
 
 router = APIRouter(prefix="/api/assistant", tags=["AI Research Assistant"])
+
+class CouncilDeliberationRequest(BaseModel):
+    topic: str
+    paper_title: str
+    text_slice: str
+    active_members: Optional[List[str]] = None
+
+@router.post("/council", response_model=CouncilConsensusResult)
+async def run_council_deliberation(request: CouncilDeliberationRequest):
+    """
+    Multi-LLM Council Deliberation endpoint.
+    Pits multiple models against each other to catch hallucinations and synthesize verified academic consensus.
+    """
+    try:
+        return await MultiLLMCouncilService.deliberate(
+            topic=request.topic,
+            paper_title=request.paper_title,
+            text_slice=request.text_slice,
+            active_members=request.active_members
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Council deliberation error: {str(e)}")
 
 @router.post("/chat", response_model=AssistantChatResponse)
 async def chat_with_assistant(request: AssistantChatRequest):

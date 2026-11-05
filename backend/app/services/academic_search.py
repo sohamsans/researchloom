@@ -13,6 +13,45 @@ def normalize_title(title: str) -> str:
     """Normalize paper title for deduplication."""
     return re.sub(r'[^a-zA-Z0-9]', '', title.lower()).strip()
 
+# Patterns identifying non-research noise: journal covers, editorial boards, issue front/back matter, tables of contents, errata
+NON_PAPER_TITLE_PATTERNS = re.compile(
+    r"(?i)\b("
+    r"cover\s*page|front\s*matter|back\s*matter|table\s*of\s*contents|contents\s*page|"
+    r"editorial\s*board|masthead|inside\s*front\s*cover|inside\s*back\s*cover|"
+    r"author\s*index|subject\s*index|corrigendum|erratum|retraction\s*notice|"
+    r"announcement|call\s*for\s*papers|preface|in\s*memoriam|reviewer\s*acknowledg(e)?ments|"
+    r"abstracts\s*of\s*the|session\s*\d+|poster\s*presentations|proceedings\s*brief|"
+    r"journal\s*cover|issue\s*information|title\s*page|preliminary\s*matter"
+    r")\b"
+)
+
+def is_substantive_academic_paper(paper: RawPaperMetadata) -> bool:
+    """
+    Robust Academic Anti-Noise Filter.
+    Excludes journal cover pages, editorial boards, tables of contents, errata, and stub articles.
+    """
+    title = (paper.title or "").strip()
+    if not title or len(title) < 8:
+        return False
+
+    # 1. Match title against non-paper blacklist regex
+    if NON_PAPER_TITLE_PATTERNS.search(title):
+        return False
+
+    # 2. Check for stub titles like "Contents", "Cover", "Index", "Index to Volume X"
+    norm = title.lower()
+    if norm in ("contents", "cover", "front matter", "back matter", "editorial board", "index", "preface"):
+        return False
+
+    # 3. Discard if abstract is solely a generic publisher or paywall placeholder
+    abstract = (paper.abstract or "").strip()
+    if abstract:
+        norm_abs = abstract.lower()
+        if re.search(r"(?i)^(this issue contains the following articles|full text available to subscribers|no abstract available\b)", norm_abs):
+            return False
+
+    return True
+
 def reconstruct_openalex_abstract(inverted_index: Optional[dict]) -> str:
     """Reconstruct plain-text abstract from OpenAlex inverted index."""
     if not inverted_index or not isinstance(inverted_index, dict):
@@ -573,14 +612,17 @@ async def discover_academic_papers(
 
     unique = deduplicate_papers(combined)
     
+    # Prune non-research items (journal covers, table of contents, errata, front matter)
+    substantive = [p for p in unique if is_substantive_academic_paper(p)]
+
     # Filter out papers already present in exclude_set
     if exclude_set:
-        unique = [
-            p for p in unique
+        substantive = [
+            p for p in substantive
             if not (p.doi and p.doi.lower().strip() in exclude_set) and not (p.id.lower().strip() in exclude_set)
         ]
 
-    final_papers = unique[:max_results]
+    final_papers = substantive[:max_results]
 
     # 2. Save into Tier 1 Cache
     if final_papers:

@@ -31,6 +31,65 @@
   const host = window.location.hostname.toLowerCase();
   const isArxiv = host === 'arxiv.org' || host.endsWith('.arxiv.org');
   const isNcbi = host === 'ncbi.nlm.nih.gov' || host.endsWith('.ncbi.nlm.nih.gov');
+  const isScholar = host === 'scholar.google.com' || host.endsWith('.scholar.google.com');
+
+  // Google Scholar specific multi-result or card parsing
+  if (isScholar) {
+    const scholarCards = document.querySelectorAll('div.gs_r.gs_or.gs_scl');
+    if (scholarCards.length > 0) {
+      const parsedItems = [];
+      scholarCards.forEach((card, index) => {
+        const titleEl = card.querySelector('h3.gs_rt a') || card.querySelector('h3.gs_rt');
+        if (!titleEl) return;
+        const itemTitle = titleEl.innerText.replace(/^\[[A-Z]+\]\s*/, '').trim();
+        const authorLine = card.querySelector('div.gs_a')?.innerText || '';
+        const snippet = card.querySelector('div.gs_rs')?.innerText || '';
+        const pdfLink = card.querySelector('div.gs_or_ggsm a')?.href || null;
+
+        // Parse citation count "Cited by 124"
+        let citations = 0;
+        const bottomLinks = card.querySelectorAll('div.gs_fl a');
+        bottomLinks.forEach(link => {
+          const match = link.innerText.match(/Cited by (\d+)/i);
+          if (match) citations = parseInt(match[1], 10);
+        });
+
+        // Authors & year from authorLine "A Vaswani, N Shazeer... - Advances in neural..., 2017 - papers.nips.cc"
+        const yearMatch = authorLine.match(/\b(19|20)\d{2}\b/);
+        const itemYear = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+        const authorsPart = authorLine.split('-')[0] || '';
+        const itemAuthors = authorsPart.split(',').map(a => a.trim()).filter(Boolean);
+
+        parsedItems.push({
+          title: itemTitle,
+          authors: itemAuthors,
+          year: itemYear,
+          venue: 'Google Scholar',
+          doi: null,
+          abstract: snippet,
+          pdf_url: pdfLink,
+          citations_count: citations,
+          source_url: titleEl.href || window.location.href
+        });
+      });
+
+      if (parsedItems.length > 0) {
+        return {
+          is_scholar_list: true,
+          items: parsedItems,
+          title: parsedItems[0].title,
+          authors: parsedItems[0].authors,
+          year: parsedItems[0].year,
+          venue: parsedItems[0].venue,
+          doi: null,
+          abstract: parsedItems[0].abstract,
+          pdf_url: parsedItems[0].pdf_url,
+          citations_count: parsedItems[0].citations_count,
+          source_url: parsedItems[0].source_url
+        };
+      }
+    }
+  }
 
   // 1. Title Extraction
   let title = getMeta([

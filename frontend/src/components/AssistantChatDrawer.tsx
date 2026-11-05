@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, ArrowRight, Compass, HelpCircle, Trash2 } from 'lucide-react';
+import { X, Send, ArrowRight, Compass, HelpCircle, Trash2, Scale, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { AssistantChatMessage, AssistantChatResponse } from '../types';
 import { sendAssistantChat, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -38,6 +38,8 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [latestResponse, setLatestResponse] = useState<AssistantChatResponse | null>(null);
+  const [isCouncilMode, setIsCouncilMode] = useState(false);
+  const [councilResult, setCouncilResult] = useState<any>(null);
 
   // Synchronize Copilot conversation to localStorage
   useEffect(() => {
@@ -152,6 +154,19 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIsCouncilMode(!isCouncilMode)}
+                className={`px-2 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1 cursor-pointer transition ${
+                  isCouncilMode
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 font-semibold'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                }`}
+                title="Toggle Multi-LLM Council Deliberation (Anti-Hallucination Peer Cross-Examination)"
+              >
+                <Scale className="w-3.5 h-3.5" />
+                <span>Council</span>
+              </button>
               <ModelSwitcherPill />
               <button
                 type="button"
