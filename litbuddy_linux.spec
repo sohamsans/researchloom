@@ -51,6 +51,8 @@ hidden_imports = [
     # LLM providers
     'groq',
     'google.genai',
+    'anthropic',
+    'openai',
     # pywebview Linux / GTK / WebKit2 / Qt backends
     'webview',
     'webview.platforms.gtk',
@@ -69,6 +71,11 @@ hidden_imports = [
     'app.routers.calc',
     'app.routers.matrix',
     'app.routers.screening',
+    'app.routers.clipper',
+    'app.routers.sync',
+    'app.routers.updater',
+    'app.routers.mcp_router',
+    'app.services.council_service',
     # Services & Resolvers
     'app.services.document_vault_service',
     'app.services.master_reference_service',

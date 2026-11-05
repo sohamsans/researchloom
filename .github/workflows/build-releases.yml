@@ -108,6 +108,12 @@ jobs:
         run: |
           pyinstaller --clean --noconfirm litbuddy.spec
 
+      - name: Build Inno Setup Installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+
       - name: Package Windows ZIP
         shell: pwsh
         run: |
@@ -120,6 +126,7 @@ jobs:
           files: |
             dist/ResearchLoom.exe
             dist/ResearchLoom-windows-x64.zip
+            dist_setup/ResearchLoom-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

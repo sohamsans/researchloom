@@ -49,6 +49,8 @@ hidden_imports = [
     # LLM providers
     'groq',
     'google.genai',
+    'anthropic',
+    'openai',
     # pywebview macOS / Cocoa backend
     'webview',
     'webview.platforms.cocoa',
@@ -70,6 +72,11 @@ hidden_imports = [
     'app.routers.calc',
     'app.routers.matrix',
     'app.routers.screening',
+    'app.routers.clipper',
+    'app.routers.sync',
+    'app.routers.updater',
+    'app.routers.mcp_router',
+    'app.services.council_service',
     'app.services.pipeline',
     'app.services.search_engines',
     'app.services.academic_apis',
