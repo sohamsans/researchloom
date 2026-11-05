@@ -62,7 +62,7 @@ jobs:
           fi
 
       - name: Upload macOS Artifacts to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -120,7 +120,7 @@ jobs:
           Compress-Archive -Path 'dist\ResearchLoom.exe' -DestinationPath 'dist\ResearchLoom-windows-x64.zip' -Force
 
       - name: Upload Windows Artifacts to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -178,7 +178,7 @@ jobs:
           cp frontend/android/app/build/outputs/apk/release/app-release.apk dist_apk/ResearchLoom-android-tablet.apk
 
       - name: Upload Android Tablet APK to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -260,7 +260,7 @@ jobs:
           tar -czvf dist/ResearchLoom-linux-x86_64.tar.gz -C package_linux .
 
       - name: Upload Linux Artifacts to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
