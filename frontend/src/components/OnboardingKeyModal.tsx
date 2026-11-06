@@ -310,6 +310,20 @@ export const OnboardingKeyModal: React.FC = () => {
                 <p className="text-[#9aa0a6] text-[11px] leading-relaxed mb-3">
                   Our mission is to maximize research accessibility without charging for API access or locking you into expensive plans. Here are curated repositories, gateways, and services offering free tiers:
                 </p>
+
+                <div className="mb-3 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold text-sky-400 text-xs">Recommended Zero-Cost Dev Setup</span>
+                    <p className="text-[11px] text-zinc-400">Get an instant free Groq or Gemini key in under 30 seconds with zero credit card required.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('groq')}
+                    className="px-3 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-zinc-950 font-medium text-xs transition cursor-pointer shrink-0"
+                  >
+                    Setup Free Key
+                  </button>
+                </div>
                 
                 <div className="space-y-2.5">
                   <div className="p-2.5 rounded-xl bg-[#1e1f20] border border-[#3c4043]">
@@ -320,7 +334,7 @@ export const OnboardingKeyModal: React.FC = () => {
                       </a>
                     </div>
                     <p className="text-[#9aa0a6] text-[10px] mt-1">
-                      Provides ultra-fast inference with generous free rate limits on `llama-3.3-70b-versatile`. Ultra-fast LPUs with zero credit card required.
+                      Provides ultra-fast inference with generous free rate limits (14,400 req/day) on `llama-3.3-70b-versatile` and `llama-3.1-8b-instant`. Ultra-fast LPUs with zero credit card required.
                     </p>
                   </div>
 
@@ -332,7 +346,19 @@ export const OnboardingKeyModal: React.FC = () => {
                       </a>
                     </div>
                     <p className="text-[#9aa0a6] text-[10px] mt-1">
-                      Generous free rate limit of 15 RPM and 1,500 requests daily on `gemini-3.8-flash` with a large token context window.
+                      Generous free rate limit of 15 RPM and 1,500 requests daily on `gemini-2.5-flash` with a massive token context window.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-[#1e1f20] border border-[#3c4043]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-[#e3e3e3]">GitHub Models Free Tokens</span>
+                      <a href="https://github.com/marketplace/models" target="_blank" rel="noreferrer" className="text-[#8ab4f8] hover:underline flex items-center gap-1 text-[11px]">
+                        github.com/marketplace/models <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <p className="text-[#9aa0a6] text-[10px] mt-1">
+                      Free developer playground & API endpoints for every GitHub account. Test GPT-4o-mini, o3-mini, and Llama 3.3 with 150 requests/day at zero cost using personal access tokens.
                     </p>
                   </div>
 
@@ -344,19 +370,31 @@ export const OnboardingKeyModal: React.FC = () => {
                       </a>
                     </div>
                     <p className="text-[#9aa0a6] text-[10px] mt-1">
-                      Models ending with `:free` (like `meta-llama/llama-3.1-8b-instruct:free`) can be queried with zero balance.
+                      Community models tagged `:free` (including DeepSeek R1, Llama 3.3 70B, Qwen 2.5) can be queried with zero balance.
                     </p>
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-[#1e1f20] border border-[#3c4043]">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-[#e3e3e3]">public-apis & Free LLM Repositories</span>
+                      <span className="font-medium text-[#e3e3e3]">Local Offline LLMs (Ollama / LM Studio)</span>
+                      <a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-[#8ab4f8] hover:underline flex items-center gap-1 text-[11px]">
+                        ollama.com <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <p className="text-[#9aa0a6] text-[10px] mt-1">
+                      100% private, free, and offline. Point Custom Base URL to http://localhost:11434/v1 with model `llama3.2` or `mistral`. Zero API keys required.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-[#1e1f20] border border-[#3c4043]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-[#e3e3e3]">public-apis & Open Science Repositories</span>
                       <a href="https://github.com/public-apis/public-apis" target="_blank" rel="noreferrer" className="text-[#8ab4f8] hover:underline flex items-center gap-1 text-[11px]">
                         github.com/public-apis <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
                     <p className="text-[#9aa0a6] text-[10px] mt-1">
-                      Comprehensive directory of free software, academic endpoints, and machine learning APIs for scientific computing.
+                      Comprehensive directory of free software, academic endpoints, OpenAlex, Semantic Scholar, and arXiv for scientific computing.
                     </p>
                   </div>
                 </div>

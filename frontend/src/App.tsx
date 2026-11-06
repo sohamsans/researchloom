@@ -15,14 +15,6 @@ import { RollbackHistoryModal, RestoreSnapshot } from './components/RollbackHist
 import { OnboardingKeyModal } from './components/OnboardingKeyModal';
 import { SourcesSidebar } from './components/SourcesSidebar';
 import { PaperChatArea } from './components/PaperChatArea';
-import { MasterReferenceManager } from './components/MasterReferenceManager';
-import { DownloadManagerView } from './components/DownloadManagerView';
-import { WritingStudio } from './components/writer/WritingStudio';
-import { StylusStudio } from './components/stylus/StylusStudio';
-import { FlowMapCanvas } from './components/flowmap/FlowMapCanvas';
-import { DataSheetStudio } from './components/DataSheetStudio';
-import { EvidenceMatrixStudio } from './components/matrix/EvidenceMatrixStudio';
-import { PRISMAFlowDiagram } from './components/screening/PRISMAFlowDiagram';
 import { SkillSynthesizerModal } from './components/SkillSynthesizerModal';
 import { TabletBridgeModal } from './components/TabletBridgeModal';
 import { PdfViewerModal } from './components/PdfViewerModal';
@@ -31,13 +23,30 @@ import { CookieBanner } from './components/CookieBanner';
 import { LegalModal } from './components/LegalModal';
 import { TopographicBackground } from './components/TopographicBackground';
 import { fetchHealthStatus, discoverPapers, runSelectedPipeline, runReviewPipeline, bulkDownloadPapers } from './services/api';
-import { FormulaStudio } from './components/calculator/FormulaStudio';
-import { StatisticsStudio } from './components/statistics/StatisticsStudio';
 import { SynthesisObjectiveModal } from './components/SynthesisObjectiveModal';
 import { SpotlightModal } from './components/SpotlightModal';
 import { UpdateModal } from './components/UpdateModal';
 import { P2PSyncModal } from './components/P2PSyncModal';
 import { McpControlModal } from './components/McpControlModal';
+
+// Code-split heavy workspace suites for instant startup and low memory footprint
+const MasterReferenceManager = React.lazy(() => import('./components/MasterReferenceManager').then(m => ({ default: m.MasterReferenceManager })));
+const DownloadManagerView = React.lazy(() => import('./components/DownloadManagerView').then(m => ({ default: m.DownloadManagerView })));
+const WritingStudio = React.lazy(() => import('./components/writer/WritingStudio').then(m => ({ default: m.WritingStudio })));
+const StylusStudio = React.lazy(() => import('./components/stylus/StylusStudio').then(m => ({ default: m.StylusStudio })));
+const FlowMapCanvas = React.lazy(() => import('./components/flowmap/FlowMapCanvas').then(m => ({ default: m.FlowMapCanvas })));
+const DataSheetStudio = React.lazy(() => import('./components/DataSheetStudio').then(m => ({ default: m.DataSheetStudio })));
+const EvidenceMatrixStudio = React.lazy(() => import('./components/matrix/EvidenceMatrixStudio').then(m => ({ default: m.EvidenceMatrixStudio })));
+const PRISMAFlowDiagram = React.lazy(() => import('./components/screening/PRISMAFlowDiagram').then(m => ({ default: m.PRISMAFlowDiagram })));
+const FormulaStudio = React.lazy(() => import('./components/calculator/FormulaStudio').then(m => ({ default: m.FormulaStudio })));
+const StatisticsStudio = React.lazy(() => import('./components/statistics/StatisticsStudio').then(m => ({ default: m.StatisticsStudio })));
+
+const StudioLoadingSkeleton: React.FC = () => (
+  <div className="flex-1 flex flex-col items-center justify-center p-12 text-zinc-500 animate-pulse">
+    <div className="w-8 h-8 rounded-full border-2 border-sky-400/40 border-t-sky-400 animate-spin mb-3" />
+    <span className="text-xs font-mono text-zinc-400">Loading workspace module...</span>
+  </div>
+);
 import {
   HealthStatus,
   PipelineResponse,
@@ -686,123 +695,125 @@ const MainLayout: React.FC = () => {
           isSidebarOpen={isSidebarOpen}
         />
 
-        {/* Persistent Tab Containers: never unmount to preserve flowmaps, formulas, and studio state */}
-        <div className={mainTab === 'references' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <MasterReferenceManager
-            onOpenPdf={(vaultId, title) => {
-              setViewerVaultId(vaultId);
-              setViewerTitle(title);
-              setIsViewerOpen(true);
-            }}
-            onChatAboutPaper={(paper) => {
-              setCurrentTopic(paper.title);
-              setViewMode('chat');
-              setMainTab('research');
-            }}
-            onCitePaper={(paper) => {
-              setPendingCitationPaper({
-                id: paper.id,
-                title: paper.title,
-                authors: paper.authors,
-                year: paper.year,
-                doi: paper.doi
-              });
-              setMainTab('studio');
-            }}
-          />
-        </div>
+        {/* Persistent Tab Containers: code-split with Suspense to keep startup instant */}
+        <React.Suspense fallback={<StudioLoadingSkeleton />}>
+          <div className={mainTab === 'references' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <MasterReferenceManager
+              onOpenPdf={(vaultId, title) => {
+                setViewerVaultId(vaultId);
+                setViewerTitle(title);
+                setIsViewerOpen(true);
+              }}
+              onChatAboutPaper={(paper) => {
+                setCurrentTopic(paper.title);
+                setViewMode('chat');
+                setMainTab('research');
+              }}
+              onCitePaper={(paper) => {
+                setPendingCitationPaper({
+                  id: paper.id,
+                  title: paper.title,
+                  authors: paper.authors,
+                  year: paper.year,
+                  doi: paper.doi
+                });
+                setMainTab('studio');
+              }}
+            />
+          </div>
 
-        <div className={mainTab === 'downloads' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <DownloadManagerView
-            onOpenPdf={(vaultId, title) => {
-              setViewerVaultId(vaultId);
-              setViewerTitle(title);
-              setIsViewerOpen(true);
-            }}
-          />
-        </div>
+          <div className={mainTab === 'downloads' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <DownloadManagerView
+              onOpenPdf={(vaultId, title) => {
+                setViewerVaultId(vaultId);
+                setViewerTitle(title);
+                setIsViewerOpen(true);
+              }}
+            />
+          </div>
 
-        <div className={mainTab === 'studio' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <WritingStudio
-            papers={reviewResults?.papers || []}
-            candidatePapers={discoveredPapers || []}
-            currentTopic={currentTopic}
-            incomingCitation={pendingCitationPaper}
-            incomingFormulaSnippet={pendingFormulaSnippet}
-            onClearIncomingCitation={() => setPendingCitationPaper(null)}
-            onClearIncomingFormula={() => setPendingFormulaSnippet(null)}
-          />
-        </div>
+          <div className={mainTab === 'studio' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <WritingStudio
+              papers={reviewResults?.papers || []}
+              candidatePapers={discoveredPapers || []}
+              currentTopic={currentTopic}
+              incomingCitation={pendingCitationPaper}
+              incomingFormulaSnippet={pendingFormulaSnippet}
+              onClearIncomingCitation={() => setPendingCitationPaper(null)}
+              onClearIncomingFormula={() => setPendingFormulaSnippet(null)}
+            />
+          </div>
 
-        <div className={mainTab === 'stylus' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <StylusStudio
-            onInsertToStudio={(note) => {
-              setPendingFormulaSnippet(note);
-              setMainTab('studio');
-            }}
-            onInsertToFlowMap={(imgUrl) => {
-              setMainTab('flow');
-            }}
-          />
-        </div>
+          <div className={mainTab === 'stylus' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <StylusStudio
+              onInsertToStudio={(note) => {
+                setPendingFormulaSnippet(note);
+                setMainTab('studio');
+              }}
+              onInsertToFlowMap={(imgUrl) => {
+                setMainTab('flow');
+              }}
+            />
+          </div>
 
-        <div className={mainTab === 'flow' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <FlowMapCanvas
-            papers={reviewResults?.papers || []}
-            candidatePapers={discoveredPapers || []}
-            onOpenPdf={(vaultId, title) => {
-              setViewerVaultId(vaultId);
-              setViewerTitle(title);
-              setIsViewerOpen(true);
-            }}
-            onCitePaper={(paper) => {
-              setPendingCitationPaper(paper);
-              setMainTab('studio');
-            }}
-          />
-        </div>
+          <div className={mainTab === 'flow' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <FlowMapCanvas
+              papers={reviewResults?.papers || []}
+              candidatePapers={discoveredPapers || []}
+              onOpenPdf={(vaultId, title) => {
+                setViewerVaultId(vaultId);
+                setViewerTitle(title);
+                setIsViewerOpen(true);
+              }}
+              onCitePaper={(paper) => {
+                setPendingCitationPaper(paper);
+                setMainTab('studio');
+              }}
+            />
+          </div>
 
-        <div className={mainTab === 'formulas' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <FormulaStudio
-            onInsertToLatex={(snippet) => {
-              setPendingFormulaSnippet(snippet);
-              setMainTab('studio');
-            }}
-          />
-        </div>
+          <div className={mainTab === 'formulas' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <FormulaStudio
+              onInsertToLatex={(snippet) => {
+                setPendingFormulaSnippet(snippet);
+                setMainTab('studio');
+              }}
+            />
+          </div>
 
-        <div className={mainTab === 'stats' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <StatisticsStudio />
-        </div>
+          <div className={mainTab === 'stats' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <StatisticsStudio />
+          </div>
 
-        <div className={mainTab === 'screening' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <PRISMAFlowDiagram
-            papers={discoveredPapers}
-            onOpenPdf={(paperId, title) => {
-              setViewerVaultId(paperId);
-              setViewerTitle(title);
-              setIsViewerOpen(true);
-            }}
-          />
-        </div>
+          <div className={mainTab === 'screening' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <PRISMAFlowDiagram
+              papers={discoveredPapers}
+              onOpenPdf={(paperId, title) => {
+                setViewerVaultId(paperId);
+                setViewerTitle(title);
+                setIsViewerOpen(true);
+              }}
+            />
+          </div>
 
-        <div className={mainTab === 'matrix' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <EvidenceMatrixStudio
-            papers={reviewResults ? reviewResults.papers : []}
-            candidatePapers={discoveredPapers}
-            onOpenPdfWithHighlight={(paperId, title, page, sentence) => {
-              setViewerVaultId(paperId);
-              setViewerTitle(title);
-              setViewerPage(page || null);
-              setViewerSentence(sentence || null);
-              setIsViewerOpen(true);
-            }}
-          />
-        </div>
+          <div className={mainTab === 'matrix' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <EvidenceMatrixStudio
+              papers={reviewResults ? reviewResults.papers : []}
+              candidatePapers={discoveredPapers}
+              onOpenPdfWithHighlight={(paperId, title, page, sentence) => {
+                setViewerVaultId(paperId);
+                setViewerTitle(title);
+                setViewerPage(page || null);
+                setViewerSentence(sentence || null);
+                setIsViewerOpen(true);
+              }}
+            />
+          </div>
 
-        <div className={mainTab === 'sheets' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
-          <DataSheetStudio />
-        </div>
+          <div className={mainTab === 'sheets' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
+            <DataSheetStudio />
+          </div>
+        </React.Suspense>
 
         <div className={mainTab === 'research' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
           {/* View Toggle Bar (Only shown once papers exist) */}

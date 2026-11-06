@@ -9,8 +9,9 @@ router = APIRouter(prefix="/api/assistant", tags=["AI Research Assistant"])
 
 class CouncilDeliberationRequest(BaseModel):
     topic: str
-    paper_title: str
-    text_slice: str
+    paper_title: Optional[str] = "General Research Formulation"
+    text_slice: Optional[str] = ""
+    query: Optional[str] = None
     active_members: Optional[List[str]] = None
 
 @router.post("/council", response_model=CouncilConsensusResult)

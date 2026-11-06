@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, ArrowRight, Compass, HelpCircle, Trash2, Scale, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, Send, ArrowRight, Compass, HelpCircle, Trash2, Scale, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 import { AssistantChatMessage, AssistantChatResponse } from '../types';
-import { sendAssistantChat, api } from '../services/api';
+import { sendAssistantChat, sendCouncilDeliberation, CouncilConsensusResult, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ModelSwitcherPill } from './ModelSwitcherPill';
 import { useNativeDialog } from '../context/NativeDialogContext';
@@ -39,7 +39,8 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [latestResponse, setLatestResponse] = useState<AssistantChatResponse | null>(null);
   const [isCouncilMode, setIsCouncilMode] = useState(false);
-  const [councilResult, setCouncilResult] = useState<any>(null);
+  const [councilResult, setCouncilResult] = useState<CouncilConsensusResult | null>(null);
+  const [showMemberDetails, setShowMemberDetails] = useState(false);
 
   // Synchronize Copilot conversation to localStorage
   useEffect(() => {
@@ -79,8 +80,47 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
+    const sentText = inputText.trim();
     setInputText('');
     setIsLoading(true);
+
+    if (isCouncilMode) {
+      try {
+        const council = await sendCouncilDeliberation({
+          topic: sentText,
+          paper_title: 'Copilot Research Inquiry',
+          query: sentText
+        });
+        setCouncilResult(council);
+        const updatedMessages = [
+          ...newMessages,
+          {
+            role: 'assistant' as const,
+            content: `🏛️ Multi-LLM Council Consensus (${Math.round(council.confidence_score * 100)}% Confidence):\n\n${council.consensus_synthesis}`,
+          },
+        ];
+        setMessages(updatedMessages);
+
+        if (token && isAuthenticated) {
+          api.saveChatHistory(
+            token,
+            `[Council] ${userMessage.content.slice(0, 30)}...`,
+            updatedMessages
+          ).catch(() => {});
+        }
+      } catch (err: any) {
+        setMessages([
+          ...newMessages,
+          {
+            role: 'assistant',
+            content: `Council Deliberation issue: ${err.message || 'Please check your API key configuration.'}`,
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     try {
       const response = await sendAssistantChat({
@@ -208,7 +248,104 @@ export const AssistantChatDrawer: React.FC<AssistantChatDrawerProps> = ({
             {isLoading && (
               <div className="flex items-center gap-2 text-xs text-[#8ab4f8] dark:bg-[#282a2c] bg-slate-100 p-3 rounded-2xl w-48 animate-pulse">
                 <Compass className="w-3.5 h-3.5 animate-spin" />
-                <span>Refining research scope...</span>
+                <span>{isCouncilMode ? 'Council deliberating...' : 'Refining research scope...'}</span>
+              </div>
+            )}
+
+            {/* Multi-LLM Council Deliberation Card */}
+            {councilResult && !isLoading && (
+              <div className="mt-3 p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/5 space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-xs">
+                    <Scale className="w-4 h-4" />
+                    <span>Academic Council Deliberation</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                    {Math.round(councilResult.confidence_score * 100)}% Confidence
+                  </span>
+                </div>
+
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  {councilResult.consensus_synthesis}
+                </p>
+
+                {councilResult.unanimous_findings.length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-white/5">
+                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Unanimous Findings ({councilResult.unanimous_findings.length})
+                    </span>
+                    <ul className="space-y-1 pl-1">
+                      {councilResult.unanimous_findings.map((f, i) => (
+                        <li key={i} className="text-[11px] text-zinc-300 flex items-start gap-1.5">
+                          <span className="text-emerald-400 font-bold">•</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {councilResult.contested_claims.length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-white/5">
+                    <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Contested / Pruned Hallucinations ({councilResult.contested_claims.length})
+                    </span>
+                    <ul className="space-y-1 pl-1">
+                      {councilResult.contested_claims.map((c, i) => (
+                        <li key={i} className="text-[11px] text-amber-200/90 flex items-start gap-1.5">
+                          <span className="text-amber-400 font-bold">•</span>
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Member Deliberations Collapsible */}
+                {councilResult.member_deliberations && councilResult.member_deliberations.length > 0 && (
+                  <div className="pt-2 border-t border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setShowMemberDetails(!showMemberDetails)}
+                      className="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-zinc-200 py-1 transition cursor-pointer"
+                    >
+                      <span className="font-medium">
+                        Member Deliberation Breakdown ({councilResult.member_deliberations.length} Models)
+                      </span>
+                      {showMemberDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {showMemberDetails && (
+                      <div className="mt-2 space-y-2">
+                        {councilResult.member_deliberations.map((m, idx) => (
+                          <div key={idx} className="p-2 rounded-lg bg-zinc-900/80 border border-white/5 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-semibold text-zinc-200">
+                                {m.member} <span className="text-zinc-500 font-normal">({m.model})</span>
+                              </span>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                                m.vote === 'Endorse'
+                                  ? 'bg-emerald-500/15 text-emerald-400'
+                                  : m.vote === 'Contested'
+                                  ? 'bg-rose-500/15 text-rose-400'
+                                  : 'bg-amber-500/15 text-amber-400'
+                              }`}>
+                                {m.vote} ({Math.round(m.confidence * 100)}%)
+                              </span>
+                            </div>
+                            {m.key_arguments.length > 0 && (
+                              <p className="text-[10px] text-zinc-400 leading-tight">
+                                {m.key_arguments.join(' • ')}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

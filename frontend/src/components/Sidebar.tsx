@@ -381,59 +381,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isOpen ? (
           <>
             {/* Quick Utility Shortcuts */}
-            <div className="grid grid-cols-5 gap-1 px-1 py-1 text-xs text-zinc-400 border-b border-white/5 mb-1">
+            <div className="flex items-center justify-between px-2 py-1.5 border-b border-white/5 mb-1.5 text-zinc-400">
               {onOpenSkills && (
                 <button
                   type="button"
                   onClick={onOpenSkills}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-zinc-200 transition-colors cursor-pointer"
-                  title="AI Skills & Agents"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-800/80 hover:text-sky-300 transition-all cursor-pointer text-zinc-400"
+                  title="AI Skills & Autonomous Agents"
+                  aria-label="AI Skills"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400 mb-0.5" />
-                  <span className="text-[10px] leading-none">Skills</span>
+                  <Sparkles className="w-4 h-4 text-sky-400" />
                 </button>
               )}
               {onOpenRollback && (
                 <button
                   type="button"
                   onClick={onOpenRollback}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-zinc-200 transition-colors cursor-pointer"
-                  title="Rollback History"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-800/80 hover:text-emerald-300 transition-all cursor-pointer text-zinc-400"
+                  title="Version History & Snapshots"
+                  aria-label="Version History"
                 >
-                  <History className="w-3.5 h-3.5 text-emerald-400 mb-0.5" />
-                  <span className="text-[10px] leading-none">History</span>
+                  <History className="w-4 h-4 text-emerald-400" />
                 </button>
               )}
               {onOpenTutorial && (
                 <button
                   type="button"
                   onClick={onOpenTutorial}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-zinc-200 transition-colors cursor-pointer"
-                  title="Tutorial Tour"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-800/80 hover:text-zinc-200 transition-all cursor-pointer text-zinc-400"
+                  title="Interactive Tutorial Tour"
+                  aria-label="Tutorial Tour"
                 >
-                  <HelpCircle className="w-3.5 h-3.5 text-zinc-400 mb-0.5" />
-                  <span className="text-[10px] leading-none">Tour</span>
+                  <HelpCircle className="w-4 h-4" />
                 </button>
               )}
               <a
                 href="https://github.com/sohamsans/researchloom/issues"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-sky-300 transition-colors cursor-pointer text-zinc-400"
-                title="GitHub Repo & Issues"
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-800/80 hover:text-zinc-200 transition-all cursor-pointer text-zinc-400"
+                title="GitHub Repo & Bug Tracker"
+                aria-label="GitHub Repo"
               >
-                <Github className="w-3.5 h-3.5 text-zinc-400 mb-0.5" />
-                <span className="text-[10px] leading-none">GitHub</span>
+                <Github className="w-4 h-4" />
               </a>
               {onOpenUpdate && (
                 <button
                   type="button"
                   onClick={onOpenUpdate}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded hover:bg-zinc-800/60 hover:text-sky-300 transition-colors cursor-pointer bg-transparent border-none"
-                  title="Check for Software Updates"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-800/80 hover:text-sky-300 transition-all cursor-pointer text-zinc-400"
+                  title="Check for Software Updates & Changelog"
+                  aria-label="Check Updates"
                 >
-                  <Download className="w-3.5 h-3.5 text-zinc-400 mb-0.5" />
-                  <span className="text-[10px] leading-none">Update</span>
+                  <Download className="w-4 h-4" />
                 </button>
               )}
             </div>

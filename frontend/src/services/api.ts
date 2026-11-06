@@ -155,6 +155,49 @@ export async function sendAssistantChat(request: AssistantChatRequest): Promise<
   return response.json();
 }
 
+export interface CouncilEvaluation {
+  member: string;
+  model: string;
+  vote: string; // 'Endorse' | 'Contested' | 'Refine'
+  confidence: number;
+  key_arguments: string[];
+  potential_hallucinations: string[];
+}
+
+export interface CouncilConsensusResult {
+  consensus_synthesis: string;
+  unanimous_findings: string[];
+  contested_claims: string[];
+  member_deliberations: CouncilEvaluation[];
+  confidence_score: number;
+}
+
+export interface CouncilDeliberationRequest {
+  topic: string;
+  paper_title?: string;
+  text_slice?: string;
+  query?: string;
+  active_members?: string[];
+}
+
+export async function sendCouncilDeliberation(request: CouncilDeliberationRequest): Promise<CouncilConsensusResult> {
+  const response = await fetch(`${API_BASE}/assistant/council`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader()
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Council deliberation error (${response.status})`);
+  }
+
+  return response.json();
+}
+
 export async function sendPaperQA(request: {
   query: string;
   papers: any[];
@@ -751,6 +794,7 @@ export const api = {
   runReviewPipeline,
   generateAIFlowMap,
   sendAssistantChat,
+  sendCouncilDeliberation,
   sendPaperQA,
   register,
   verifyCode,

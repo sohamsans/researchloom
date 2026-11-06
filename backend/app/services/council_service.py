@@ -37,8 +37,8 @@ class MultiLLMCouncilService:
     async def deliberate(
         cls,
         topic: str,
-        paper_title: str,
-        text_slice: str,
+        paper_title: str = "General Research Formulation",
+        text_slice: str = "",
         active_members: Optional[List[str]] = None
     ) -> CouncilConsensusResult:
         base_client = UniversalLLMClient()

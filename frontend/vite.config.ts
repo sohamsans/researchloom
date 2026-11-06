@@ -12,4 +12,18 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-katex': ['katex'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-sheets': ['xlsx'],
+          'vendor-tables': ['@tanstack/react-table', 'marked'],
+        },
+      },
+    },
+  },
 });
