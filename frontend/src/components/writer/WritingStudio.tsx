@@ -27,8 +27,10 @@ interface WritingStudioProps {
   currentTopic?: string;
   incomingCitation?: { id: string; title: string; authors?: string[]; year?: number; doi?: string } | null;
   incomingFormulaSnippet?: string | null;
+  incomingSection?: { title: string; latex: string; bibtex: string[] } | null;
   onClearIncomingCitation?: () => void;
   onClearIncomingFormula?: () => void;
+  onClearIncomingSection?: () => void;
 }
 
 const DEFAULT_DOC_NOTE = `# Research Synthesis & Literature Notes
@@ -61,8 +63,10 @@ export const WritingStudio: React.FC<WritingStudioProps> = ({
   currentTopic = '',
   incomingCitation = null,
   incomingFormulaSnippet = null,
+  incomingSection = null,
   onClearIncomingCitation,
-  onClearIncomingFormula
+  onClearIncomingFormula,
+  onClearIncomingSection
 }) => {
   const { showConfirm, showToast } = useNativeDialog();
   const [manuscripts, setManuscripts] = useState<ManuscriptItem[]>([]);
@@ -363,6 +367,39 @@ export const WritingStudio: React.FC<WritingStudioProps> = ({
     setToastBanner('Inserted mathematical formula into active manuscript!');
     onClearIncomingFormula?.();
   }, [incomingFormulaSnippet, activeManuscript, manuscripts, onClearIncomingFormula]);
+
+  // Handle incoming comparative synthesis section from EvidenceMatrixStudio
+  useEffect(() => {
+    if (!incomingSection) return;
+
+    const targetDoc = activeManuscript || manuscripts[0];
+    if (!targetDoc) return;
+
+    if (targetDoc.mode === 'latex') {
+      let updatedSource = targetDoc.latex_source;
+      const sectionLatex = `\n\n% --- Synthesized Comparative Section ---\n${incomingSection.latex}\n`;
+
+      if (updatedSource.includes('\\end{document}')) {
+        updatedSource = updatedSource.replace('\\end{document}', `${sectionLatex}\n\\end{document}`);
+      } else {
+        updatedSource += sectionLatex;
+      }
+
+      handleLatexChange(updatedSource);
+      showToast(`Injected comparative section "${incomingSection.title}" into LaTeX manuscript!`, 'success');
+    } else {
+      const markdownSection = `\n\n## ${incomingSection.title}\n\n` +
+        incomingSection.latex
+          .replace(/\\section\{([^}]+)\}/g, '### $1\n')
+          .replace(/\\subsection\{([^}]+)\}/g, '#### $1\n')
+          .replace(/\\cite\{([^}]+)\}/g, '[$1]');
+      const updated = targetDoc.content + markdownSection;
+      handleContentChange(updated);
+      showToast(`Injected comparative section "${incomingSection.title}" into notes document!`, 'success');
+    }
+
+    onClearIncomingSection?.();
+  }, [incomingSection, activeManuscript, manuscripts, onClearIncomingSection]);
 
   // Export handlers
   const handleExportRichDoc = (format: 'md' | 'html' | 'txt') => {

@@ -16,7 +16,8 @@ __pycache__/
 *$py.class
 *.spec
 !litbuddy.spec
-!litbuddy_linux.spec.bak
+!litbuddy_linux.spec
+!litbuddy_mac.spec.bak
 build/
 dist/
 *.egg-info/
@@ -60,7 +61,9 @@ progress.md
 *.spec
 !litbuddy.spec
 !litbuddy_linux.spec
+!litbuddy_mac.spec
 
 # Deployment mirror folder
 netlify_deploy/
 dist_setup/
+dist_apk/

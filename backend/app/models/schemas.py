@@ -401,3 +401,129 @@ class PRISMAStatsResponse(BaseModel):
     total_included: int
     recent_audit_log: List[ScreeningAuditItemResponse]
 
+# ----------------- Citation Snowballing Schemas -----------------
+
+class SnowballSeedMetadata(BaseModel):
+    openalex_id: str
+    doi: Optional[str] = None
+    title: str
+    year: Optional[int] = None
+    authors: List[str] = Field(default_factory=list)
+    cited_by_count: int = 0
+    referenced_works_count: int = 0
+    venue: Optional[str] = None
+    is_oa: bool = False
+    oa_url: Optional[str] = None
+
+class SnowballPaperItem(BaseModel):
+    id: str # OpenAlex work ID (e.g. W3035965352)
+    doi: Optional[str] = None
+    title: str
+    year: Optional[int] = None
+    authors: List[str] = Field(default_factory=list)
+    cited_by_count: int = 0
+    venue: Optional[str] = None
+    abstract: str = ""
+    is_oa: bool = False
+    oa_url: Optional[str] = None
+    relation: str # 'predecessor' (backward) or 'successor' (forward)
+    source: str = "openalex"
+
+class SnowballResponse(BaseModel):
+    seed: SnowballSeedMetadata
+    direction: str # 'backward' or 'forward'
+    total_count: int
+    papers: List[SnowballPaperItem]
+    warnings: List[str] = Field(default_factory=list)
+
+# ----------------- Evidence Matrix Synthesis Schemas -----------------
+
+class MatrixPaperSummary(BaseModel):
+    paper_id: str
+    title: str
+    authors: List[str] = Field(default_factory=list)
+    year: Optional[int] = None
+    doi: Optional[str] = None
+    abstract: str = ""
+    extracted_cells: Dict[str, str] = Field(default_factory=dict) # {column_name: value}
+
+class SynthesisDrafterRequest(BaseModel):
+    papers: List[MatrixPaperSummary] = Field(..., min_length=2, max_length=15)
+    synthesis_lens: str = "contrastive" # contrastive, discrepancies, consensus, gaps
+    topic: str = "General Literature Synthesis"
+    model_provider: Optional[str] = "groq"
+    model_name: Optional[str] = None
+    groq_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    claude_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = None
+    deepseek_api_key: Optional[str] = None
+    nvidia_api_key: Optional[str] = None
+    custom_api_key: Optional[str] = None
+    custom_base_url: Optional[str] = None
+
+class SynthesisParagraph(BaseModel):
+    subheading: str
+    text: str # Paragraph text containing \cite{AuthorYear} keys
+    cited_keys: List[str] = Field(default_factory=list)
+
+class SynthesisDrafterResponse(BaseModel):
+    section_title: str
+    paragraphs: List[SynthesisParagraph]
+    full_latex_section: str
+    bibtex_entries: List[str] = Field(default_factory=list)
+    model_used: str
+    lens_applied: str
+
+# ----------------- Bibliographic Reference Schemas -----------------
+
+class BibliographicReferenceItem(BaseModel):
+    id: str
+    citation_key: str
+    cite_author_year: str
+    entry_type: str = "article"
+    title: str
+    authors: List[str] = Field(default_factory=list)
+    year: Optional[int] = None
+    venue: Optional[str] = None
+    volume: Optional[str] = None
+    issue: Optional[str] = None
+    pages: Optional[str] = None
+    publisher: Optional[str] = None
+    doi: Optional[str] = None
+    doi_verified: bool = False
+    url: Optional[str] = None
+    abstract: Optional[str] = None
+    bibtex_raw: Optional[str] = None
+    collection_name: str = "Default Library"
+    source: str = "zotero_import"
+    is_vaulted: bool = False
+    vault_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+class ReferenceImportRequest(BaseModel):
+    format: str # 'bibtex' or 'csl-json'
+    content: str
+    collection_name: str = "Imported Collection"
+
+class ReferenceImportResponse(BaseModel):
+    total_parsed: int
+    imported_count: int
+    duplicates_merged: int
+    references: List[BibliographicReferenceItem]
+    warnings: List[str] = Field(default_factory=list)
+
+class VerifyDOIRequest(BaseModel):
+    doi: str
+
+class VerifyDOIResponse(BaseModel):
+    doi: str
+    verified: bool
+    title: Optional[str] = None
+    venue: Optional[str] = None
+    year: Optional[int] = None
+    citation_count: Optional[int] = None
+    error: Optional[str] = None
+

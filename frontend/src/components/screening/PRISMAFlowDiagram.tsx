@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Filter,
   CheckCircle2,
@@ -32,6 +32,7 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
   const [isExclusionModalOpen, setIsExclusionModalOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState<string>('Wrong Population');
   const [activeTab, setActiveTab] = useState<'screening' | 'flowchart' | 'audit'>('screening');
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   const EXCLUSION_REASONS = [
     'Wrong Population',
@@ -41,6 +42,106 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
     'Methodology Flaw',
     'Duplicate'
   ];
+
+  const handleExportSVG = () => {
+    if (!svgRef.current) return;
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svgRef.current);
+    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'prisma_2020_flow_diagram.svg';
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Exported PRISMA 2020 Vector SVG!', 'success');
+  };
+
+  const handleExportPDF = () => {
+    if (!svgRef.current) return;
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svgRef.current);
+    const img = new Image();
+    const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      const scale = 3;
+      const canvas = document.createElement('canvas');
+      canvas.width = (svgRef.current?.clientWidth || 780) * scale;
+      canvas.height = (svgRef.current?.clientHeight || 620) * scale;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#090a0f';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = 'prisma_2020_flow_diagram_300dpi.png';
+        a.click();
+        showToast('Exported PRISMA 2020 300 DPI High-Res Image!', 'success');
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  const handleCopyTikZ = () => {
+    if (!stats) return;
+    const identified = stats.total_identified || papers.length;
+    const duplicates = stats.duplicates_removed || 0;
+    const screened = stats.total_screened || 0;
+    const screen_ex = stats.screen_excluded || 0;
+    const eligibility = stats.eligibility_assessed || 0;
+    const elig_ex = stats.eligibility_excluded || 0;
+    const included = stats.total_included || 0;
+
+    const reasons = Object.entries(stats.screen_excluded_by_reason || {})
+      .map(([r, c]) => `${r.replace(/[%$&#_]/g, '\\$&')}: $n = ${c}$`)
+      .join('\\\\ ');
+
+    const tikzCode = `\\documentclass{article}
+\\usepackage{tikz}
+\\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+
+\\begin{document}
+\\begin{figure*}[!t]
+\\centering
+\\begin{tikzpicture}[
+    node distance=1.2cm and 1.8cm,
+    every node/.style={font=\\sffamily\\small},
+    box/.style={rectangle, draw=black, thick, fill=white, text width=6.2cm, minimum height=1.6cm, align=left, inner sep=6pt},
+    sidebox/.style={rectangle, draw=black, thick, fill=gray!10, text width=5.6cm, minimum height=1.6cm, align=left, inner sep=6pt},
+    arrow/.style={-{Stealth[scale=1.2]}, thick}
+]
+
+% Nodes
+\\node (ident) [box] {\\textbf{Identification}\\\\[3pt]Records identified from OpenAlex, arXiv, Crossref ($n = ${identified}$)\\\\[2pt]Duplicate records removed ($n = ${duplicates}$)};
+
+\\node (screen) [box, below=of ident] {\\textbf{Screening}\\\\[3pt]Records screened ($n = ${screened}$)};
+\\node (screen_ex) [sidebox, right=of screen] {\\textbf{Records excluded} ($n = ${screen_ex}$)\\\\[2pt]${reasons || 'Preprints/Irrelevant'}};
+
+\\node (elig) [box, below=of screen] {\\textbf{Eligibility}\\\\[3pt]Reports sought for retrieval ($n = ${eligibility}$)};
+\\node (elig_ex) [sidebox, right=of elig] {\\textbf{Reports excluded} ($n = ${elig_ex}$)};
+
+\\node (incl) [box, below=of elig, xshift=3.7cm, text width=13.6cm, fill=teal!10, draw=teal!60!black] {\\textbf{Included}\\\\[3pt]Final studies included in review synthesis ($n = ${included}$)};
+
+% Arrows
+\\draw [arrow] (ident) -- (screen);
+\\draw [arrow] (screen) -- (screen_ex);
+\\draw [arrow] (screen) -- (elig);
+\\draw [arrow] (elig) -- (elig_ex);
+\\draw [arrow] (elig) |- (incl);
+
+\\end{tikzpicture}
+\\caption{PRISMA 2020 flow diagram depicting the study identification, screening, eligibility, and inclusion process.}
+\\label{fig:prisma2020}
+\\end{figure*}
+\\end{document}`;
+
+    navigator.clipboard.writeText(tikzCode);
+    showToast('LaTeX TikZ source copied to clipboard!', 'success');
+  };
 
   const loadStats = useCallback(async () => {
     try {
@@ -152,6 +253,38 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
               Audit Provenance
             </button>
           </div>
+
+          {activeTab === 'flowchart' && (
+            <div className="flex items-center gap-1.5 ml-2 border-l border-zinc-800 pl-2">
+              <button
+                type="button"
+                onClick={handleExportSVG}
+                className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 flex items-center gap-1.5 transition cursor-pointer"
+                title="Download Vector SVG"
+              >
+                <Download className="w-3.5 h-3.5 text-cyan-400" />
+                <span>SVG</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 flex items-center gap-1.5 transition cursor-pointer"
+                title="Download 300 DPI High-Res Image"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>300 DPI</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyTikZ}
+                className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 flex items-center gap-1.5 transition cursor-pointer"
+                title="Copy Overleaf TikZ Code"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>LaTeX TikZ</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -312,6 +445,78 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
                   <div className="text-sm font-semibold">
                     Final Studies Included in Review Synthesis: <strong>{stats.total_included}</strong>
                   </div>
+                </div>
+              </div>
+
+              {/* Publication Vector SVG Diagram */}
+              <div className="pt-6 border-t border-zinc-800 flex flex-col items-center">
+                <div className="flex items-center justify-between w-full mb-3">
+                  <span className="text-xs font-semibold text-zinc-300">Vector SVG Diagram View</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">Publication-ready vector graphic &amp; TikZ generator</span>
+                </div>
+                <div className="w-full overflow-x-auto p-4 rounded-xl bg-zinc-950 border border-zinc-800/80 flex justify-center">
+                  <svg
+                    ref={svgRef}
+                    viewBox="0 0 780 500"
+                    width="780"
+                    height="500"
+                    className="max-w-full h-auto"
+                    style={{ background: '#090a0f', fontFamily: 'sans-serif' }}
+                  >
+                    <defs>
+                      <marker id="prisma-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                        <polygon points="0 0, 8 3, 0 6" fill="#a1a1aa" />
+                      </marker>
+                    </defs>
+
+                    {/* Stage 1: Identification */}
+                    <rect x="40" y="20" width="320" height="75" rx="8" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+                    <text x="55" y="44" fill="#f4f4f5" fontSize="12" fontWeight="bold">1. IDENTIFICATION</text>
+                    <text x="55" y="64" fill="#a1a1aa" fontSize="11">Records identified (n = {stats.total_identified || papers.length})</text>
+                    <text x="55" y="80" fill="#71717a" fontSize="10">Duplicates removed (n = {stats.duplicates_removed})</text>
+
+                    {/* Arrow Ident -> Screen */}
+                    <line x1="200" y1="95" x2="200" y2="135" stroke="#a1a1aa" strokeWidth="1.5" markerEnd="url(#prisma-arrow)" />
+
+                    {/* Stage 2: Screening */}
+                    <rect x="40" y="135" width="320" height="75" rx="8" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+                    <text x="55" y="159" fill="#f4f4f5" fontSize="12" fontWeight="bold">2. SCREENING</text>
+                    <text x="55" y="179" fill="#a1a1aa" fontSize="11">Records screened (n = {stats.total_screened})</text>
+                    <text x="55" y="195" fill="#71717a" fontSize="10">Title &amp; abstract rapid triage</text>
+
+                    {/* Arrow Screen -> Excluded */}
+                    <line x1="360" y1="172" x2="425" y2="172" stroke="#a1a1aa" strokeWidth="1.5" markerEnd="url(#prisma-arrow)" />
+
+                    {/* Screen Excluded Box */}
+                    <rect x="425" y="135" width="315" height="75" rx="8" fill="#18181b" stroke="#7f1d1d" strokeWidth="1.5" />
+                    <text x="440" y="159" fill="#f87171" fontSize="12" fontWeight="bold">Records excluded (n = {stats.screen_excluded})</text>
+                    <text x="440" y="179" fill="#a1a1aa" fontSize="10">Primary reasons: {Object.keys(stats.screen_excluded_by_reason).slice(0, 2).join(', ') || 'Irrelevant'}</text>
+
+                    {/* Arrow Screen -> Eligibility */}
+                    <line x1="200" y1="210" x2="200" y2="250" stroke="#a1a1aa" strokeWidth="1.5" markerEnd="url(#prisma-arrow)" />
+
+                    {/* Stage 3: Eligibility */}
+                    <rect x="40" y="250" width="320" height="75" rx="8" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+                    <text x="55" y="274" fill="#f4f4f5" fontSize="12" fontWeight="bold">3. ELIGIBILITY</text>
+                    <text x="55" y="294" fill="#a1a1aa" fontSize="11">Full-text reports assessed (n = {stats.eligibility_assessed})</text>
+                    <text x="55" y="310" fill="#71717a" fontSize="10">Full criteria evaluation</text>
+
+                    {/* Arrow Eligibility -> Excluded */}
+                    <line x1="360" y1="287" x2="425" y2="287" stroke="#a1a1aa" strokeWidth="1.5" markerEnd="url(#prisma-arrow)" />
+
+                    {/* Eligibility Excluded Box */}
+                    <rect x="425" y="250" width="315" height="75" rx="8" fill="#18181b" stroke="#7f1d1d" strokeWidth="1.5" />
+                    <text x="440" y="274" fill="#f87171" fontSize="12" fontWeight="bold">Reports excluded (n = {stats.eligibility_excluded})</text>
+                    <text x="440" y="294" fill="#a1a1aa" fontSize="10">Full-text review exclusions</text>
+
+                    {/* Arrow Eligibility -> Included */}
+                    <line x1="200" y1="325" x2="200" y2="385" stroke="#a1a1aa" strokeWidth="1.5" markerEnd="url(#prisma-arrow)" />
+
+                    {/* Stage 4: Included (Full Centered Box) */}
+                    <rect x="40" y="385" width="700" height="85" rx="10" fill="#064e3b" stroke="#10b981" strokeWidth="2" />
+                    <text x="390" y="420" fill="#a7f3d0" fontSize="13" fontWeight="bold" textAnchor="middle">4. INCLUDED STUDIES</text>
+                    <text x="390" y="445" fill="#ecfdf5" fontSize="15" fontWeight="bold" textAnchor="middle">Final Studies Included in Systematic Review Synthesis (n = {stats.total_included})</text>
+                  </svg>
                 </div>
               </div>
             </div>

@@ -260,3 +260,22 @@ async def update_matrix_cell_manually(cell_id: str, req: MatrixCellUpdateRequest
         is_human_edited=cell.is_human_edited,
         updated_at=cell.updated_at.isoformat() if cell.updated_at else ""
     )
+
+# ----------------- Evidence Matrix Synthesis Drafter -----------------
+from app.models.schemas import SynthesisDrafterRequest, SynthesisDrafterResponse
+from app.services.matrix_synthesis_service import generate_comparative_synthesis_section
+
+@router.post("/synthesize-section", response_model=SynthesisDrafterResponse)
+async def synthesize_matrix_section(req: SynthesisDrafterRequest):
+    """
+    Draft a comparative literature review section from selected evidence matrix rows.
+    Adheres strictly to GEMINI.md free-tier cloud models and citation key firewall.
+    """
+    try:
+        return await generate_comparative_synthesis_section(req)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to draft synthesis section: {str(e)}")

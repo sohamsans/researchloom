@@ -21,7 +21,13 @@ import {
   MatrixFullDataResponse,
   ScreeningDecisionRequest,
   ScreeningAuditItem,
-  PRISMAStatsResponse
+  PRISMAStatsResponse,
+  SnowballResponse,
+  SynthesisDrafterRequest,
+  SynthesisDrafterResponse,
+  BibliographicReferenceItem,
+  ReferenceImportResponse,
+  VerifyDOIResponse
 } from '../types';
 import { FALLBACK_PROVIDERS_INFO } from './providersFallback';
 import { executeStandaloneDiscover, executeStandalonePipeline } from './standaloneClient';
@@ -787,12 +793,98 @@ export async function generateAIFlowMap(topic: string, papers?: any[]): Promise<
   return res.json();
 }
 
+export async function fetchSnowballing(
+  paperId: string,
+  direction: 'backward' | 'forward',
+  maxResults: number = 25
+): Promise<SnowballResponse> {
+  const encId = encodeURIComponent(paperId);
+  const resp = await fetch(`${API_BASE}/snowball/${direction}/${encId}?max_results=${maxResults}`, {
+    headers: { ...getAuthHeader() }
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch ${direction} snowball citations`);
+  }
+  return resp.json();
+}
+
+export async function synthesizeMatrixSection(
+  req: SynthesisDrafterRequest
+): Promise<SynthesisDrafterResponse> {
+  const byok = getClientBYOKKeys();
+  const payload: SynthesisDrafterRequest = {
+    ...req,
+    groq_api_key: req.groq_api_key || byok.groq,
+    gemini_api_key: req.gemini_api_key || byok.gemini,
+    claude_api_key: req.claude_api_key || (byok as any).claude,
+    openai_api_key: req.openai_api_key || (byok as any).openai,
+    openrouter_api_key: req.openrouter_api_key || byok.openrouter
+  };
+  const resp = await fetch(`${API_BASE}/matrix/synthesize-section`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify(payload)
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to synthesize comparative section');
+  }
+  return resp.json();
+}
+
+export async function importReferences(
+  format: 'bibtex' | 'csl-json',
+  content: string,
+  collectionName: string = 'Imported Collection'
+): Promise<ReferenceImportResponse> {
+  const resp = await fetch(`${API_BASE}/references/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify({ format, content, collection_name: collectionName })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to import references');
+  }
+  return resp.json();
+}
+
+export async function verifyReferenceDOI(doi: string): Promise<VerifyDOIResponse> {
+  const resp = await fetch(`${API_BASE}/references/verify-doi`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    body: JSON.stringify({ doi })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to verify DOI');
+  }
+  return resp.json();
+}
+
+export async function fetchCollectionReferences(
+  collectionName: string = 'Default Library'
+): Promise<{ collection: string; total: number; items: BibliographicReferenceItem[] }> {
+  const enc = encodeURIComponent(collectionName);
+  const resp = await fetch(`${API_BASE}/references/collection/${enc}`, {
+    headers: { ...getAuthHeader() }
+  });
+  if (!resp.ok) throw new Error('Failed to fetch collection references');
+  return resp.json();
+}
+
 export const api = {
   fetchHealthStatus,
   discoverPapers,
   runSelectedPipeline,
   runReviewPipeline,
   generateAIFlowMap,
+  fetchSnowballing,
+  synthesizeMatrixSection,
+  importReferences,
+  verifyReferenceDOI,
+  fetchCollectionReferences,
   sendAssistantChat,
   sendCouncilDeliberation,
   sendPaperQA,

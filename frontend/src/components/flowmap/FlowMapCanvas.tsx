@@ -34,6 +34,7 @@ import {
   Palette
 } from 'lucide-react';
 import { ReviewPaper, RawPaperMetadata } from '../../types';
+import { api } from '../../services/api';
 import { CollabRoomModal } from './CollabRoomModal';
 import { FlowContextMenu } from './FlowContextMenu';
 import { PaperPoolSelectorModal } from './PaperPoolSelectorModal';
@@ -73,7 +74,7 @@ export interface FlowEdge {
   source: string;
   target: string;
   label?: string;
-  type?: 'cites' | 'user_connection' | 'trail' | 'supporting' | 'contrasting' | 'mentioning';
+  type?: 'cites' | 'user_connection' | 'trail' | 'supporting' | 'contrasting' | 'mentioning' | 'predecessor' | 'successor';
 }
 
 export interface SavedCanvas {
@@ -766,6 +767,112 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     }
   };
 
+  // Dual Lineage Forward & Backward Citation Snowballing (OpenAlex Polite Pool)
+  const [snowballLoading, setSnowballLoading] = useState<string | null>(null);
+
+  const handleSnowballLineage = async (node: FlowNode, direction: 'backward' | 'forward' | 'both' = 'both') => {
+    const seedId = node.doi || node.id;
+    setSnowballLoading(node.id);
+    showToast(`Tracing citation lineage for "${node.title.slice(0, 30)}..."`, 'info');
+
+    try {
+      const toFetch = direction === 'both' ? (['backward', 'forward'] as const) : [direction];
+      const addedNodes: FlowNode[] = [];
+      const addedEdges: FlowEdge[] = [];
+
+      for (const dir of toFetch) {
+        const data = await api.fetchSnowballing(seedId, dir, 10);
+        if (data.papers && data.papers.length > 0) {
+          const isBack = dir === 'backward';
+          const folderId = `snowball_${dir}_${node.id}`;
+          const folderX = isBack ? node.x - 460 : node.x + 460;
+          const folderY = node.y;
+
+          const folderNode: FlowNode = {
+            id: folderId,
+            type: 'folder',
+            title: isBack ? `Predecessors (${data.papers.length})` : `Successors (${data.papers.length})`,
+            subtitle: isBack ? `Foundations cited by ${node.title.slice(0, 20)}...` : `Works citing ${node.title.slice(0, 20)}...`,
+            x: folderX,
+            y: folderY,
+            isCollapsed: false,
+            color: isBack ? 'amber' : 'blue',
+            childPaperIds: data.papers.map((p) => p.id),
+            childPapers: data.papers.map((p) => ({
+              id: p.id,
+              title: p.title,
+              authors: p.authors,
+              year: p.year,
+              doi: p.doi,
+              pdf_url: p.oa_url
+            }))
+          };
+
+          const hubEdge: FlowEdge = {
+            id: `edge_${node.id}_${folderId}`,
+            source: isBack ? folderId : node.id,
+            target: isBack ? node.id : folderId,
+            label: isBack ? 'cited_by' : 'cites',
+            type: isBack ? 'predecessor' : 'successor'
+          };
+
+          // Layout child papers: Predecessors expand leftward, successors expand rightward
+          const colSpacing = 310;
+          const rowSpacing = 150;
+          const childNodes: FlowNode[] = data.papers.map((p, idx) => {
+            const col = idx % 2;
+            const row = Math.floor(idx / 2);
+            const childX = isBack
+              ? folderX - 320 - col * colSpacing
+              : folderX + 320 + col * colSpacing;
+            const childY = folderY + row * rowSpacing;
+
+            return {
+              id: p.id,
+              type: 'paper',
+              title: p.title,
+              subtitle: p.authors?.length ? `${p.authors[0]} et al.` : (isBack ? 'Foundational Predecessor' : 'Emerging Successor'),
+              year: p.year,
+              authors: p.authors,
+              doi: p.doi,
+              pdf_url: p.oa_url,
+              abstract: p.abstract,
+              color: isBack ? 'amber' : 'blue',
+              x: childX,
+              y: childY
+            };
+          });
+
+          const childEdges: FlowEdge[] = childNodes.map((cn) => ({
+            id: `edge_${folderId}_${cn.id}`,
+            source: isBack ? cn.id : folderId,
+            target: isBack ? folderId : cn.id,
+            label: isBack ? 'foundation' : 'extension',
+            type: isBack ? 'predecessor' : 'successor'
+          }));
+
+          addedNodes.push(folderNode, ...childNodes);
+          addedEdges.push(hubEdge, ...childEdges);
+        }
+      }
+
+      if (addedNodes.length > 0) {
+        const addedNodeIds = new Set(addedNodes.map((n) => n.id));
+        const addedEdgeIds = new Set(addedEdges.map((e) => e.id));
+
+        setNodes((prev) => [...prev.filter((n) => !addedNodeIds.has(n.id)), ...addedNodes]);
+        setEdges((prev) => [...prev.filter((e) => !addedEdgeIds.has(e.id)), ...addedEdges]);
+        showToast(`Added ${addedNodes.length} lineage nodes to the canvas.`, 'success');
+      } else {
+        showToast('No OpenAlex citation lineage records found for this seed.', 'info');
+      }
+    } catch (err: any) {
+      showAlert(`Citation snowballing error: ${err.message}`, 'Snowballing Error', 'error');
+    } finally {
+      setSnowballLoading(null);
+    }
+  };
+
   // Expand / Collapse Folder Node with Clean Multi-Column Orientation
   const handleToggleFolder = (folderNode: FlowNode) => {
     if (folderNode.type !== 'folder') return;
@@ -773,6 +880,7 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
 
     if (!isNowCollapsed && folderNode.childPapers) {
       // Expanding: Lay out in clean 2-column grid next to folder
+      const isLeftward = folderNode.title.includes('Predecessor') || folderNode.color === 'amber';
       const colSpacing = 310;
       const rowSpacing = 150;
       const childNodes: FlowNode[] = folderNode.childPapers.map((cp, idx) => {
@@ -787,17 +895,18 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
           authors: cp.authors,
           doi: cp.doi,
           pdf_url: cp.pdf_url,
-          x: folderNode.x + 320 + col * colSpacing,
+          color: folderNode.color,
+          x: isLeftward ? folderNode.x - 320 - col * colSpacing : folderNode.x + 320 + col * colSpacing,
           y: folderNode.y + row * rowSpacing
         };
       });
 
       const childEdges: FlowEdge[] = childNodes.map((cn) => ({
         id: `edge_${folderNode.id}_${cn.id}`,
-        source: folderNode.id,
-        target: cn.id,
-        label: 'ref',
-        type: 'cites'
+        source: isLeftward ? cn.id : folderNode.id,
+        target: isLeftward ? folderNode.id : cn.id,
+        label: isLeftward ? 'foundation' : 'extension',
+        type: isLeftward ? 'predecessor' : 'successor'
       }));
 
       setNodes((prev) => [
@@ -1345,6 +1454,26 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
           >
             <polygon points="0 0, 8 3, 0 6" fill="#34d399" />
           </marker>
+          <marker
+            id="arrowhead-amber"
+            markerWidth="8"
+            markerHeight="6"
+            refX="7"
+            refY="3"
+            orient="auto"
+          >
+            <polygon points="0 0, 8 3, 0 6" fill="#f59e0b" />
+          </marker>
+          <marker
+            id="arrowhead-cyan"
+            markerWidth="8"
+            markerHeight="6"
+            refX="7"
+            refY="3"
+            orient="auto"
+          >
+            <polygon points="0 0, 8 3, 0 6" fill="#06b6d4" />
+          </marker>
         </defs>
 
         {edges.map((edge) => {
@@ -1365,6 +1494,8 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
           const isTrail = edge.type === 'trail';
           const isSupporting = edge.type === 'supporting';
           const isContrasting = edge.type === 'contrasting';
+          const isPredecessor = edge.type === 'predecessor';
+          const isSuccessor = edge.type === 'successor';
 
           const strokeColor = isTrail
             ? 'rgba(52, 211, 153, 0.75)'
@@ -1372,11 +1503,21 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
             ? 'rgba(34, 197, 94, 0.85)' // Emerald 500
             : isContrasting
             ? 'rgba(239, 68, 68, 0.85)' // Red 500
+            : isPredecessor
+            ? 'rgba(245, 158, 11, 0.85)' // Amber 500
+            : isSuccessor
+            ? 'rgba(6, 182, 212, 0.85)' // Cyan 500
             : edge.type === 'cites'
             ? 'rgba(255, 255, 255, 0.25)'
             : 'rgba(56, 189, 248, 0.65)';
-          const strokeDash = edge.type === 'cites' ? '4 4' : undefined;
-          const marker = isTrail || isSupporting ? 'url(#arrowhead-emerald)' : 'url(#arrowhead-white)';
+          const strokeDash = (edge.type === 'cites' || isPredecessor) ? '4 4' : undefined;
+          const marker = isTrail || isSupporting
+            ? 'url(#arrowhead-emerald)'
+            : isPredecessor
+            ? 'url(#arrowhead-amber)'
+            : isSuccessor
+            ? 'url(#arrowhead-cyan)'
+            : 'url(#arrowhead-white)';
 
           return (
             <g key={edge.id} className="group">
@@ -1665,6 +1806,21 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
                     <span>Trail</span>
                   </button>
 
+                  {/* Citation Snowballing (Forward & Backward Lineage) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSnowballLineage(node, 'both');
+                    }}
+                    disabled={snowballLoading === node.id}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 hover:text-cyan-300 hover:border-cyan-500/40 transition-colors"
+                    title="Snowball forward & backward citations via OpenAlex"
+                  >
+                    <GitBranch className={`w-3 h-3 text-cyan-400 ${snowballLoading === node.id ? 'animate-spin' : ''}`} />
+                    <span>Snowball</span>
+                  </button>
+
                   {/* Parse Cited Paper Trail */}
                   {node.doi && (
                     <button
@@ -1772,6 +1928,47 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
           </div>
 
           <div className="pt-4 border-t border-zinc-800 space-y-2">
+            {selectedNode.type === 'paper' && (
+              <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5 text-cyan-400" />
+                    OpenAlex Citation Lineage
+                  </span>
+                  {snowballLoading === selectedNode.id && (
+                    <span className="text-[10px] text-cyan-400 animate-pulse">Querying...</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSnowballLineage(selectedNode, 'backward')}
+                    disabled={snowballLoading === selectedNode.id}
+                    className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-medium flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <span>⬅ Predecessors</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSnowballLineage(selectedNode, 'forward')}
+                    disabled={snowballLoading === selectedNode.id}
+                    className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-medium flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <span>Successors ➡</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSnowballLineage(selectedNode, 'both')}
+                  disabled={snowballLoading === selectedNode.id}
+                  className="w-full py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-400" />
+                  <span>Trace Dual Lineage (Both)</span>
+                </button>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={(e) => {

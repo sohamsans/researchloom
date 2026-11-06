@@ -180,3 +180,33 @@ class ScreeningAuditLog(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=get_utc_now)
 
+class BibliographicReference(Base):
+    """Zotero/Better-BibTeX reference library entry stored in local encrypted SQLite."""
+    __tablename__ = "bibliographic_references"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=True)
+    citation_key = Column(String(128), unique=True, index=True, nullable=False)
+    cite_author_year = Column(String(64), index=True, nullable=False)
+    entry_type = Column(String(32), default="article")
+    title = Column(Text, nullable=False)
+    authors_json = Column(Text, nullable=False) # JSON list
+    year = Column(Integer, nullable=True)
+    venue = Column(String(255), nullable=True)
+    volume = Column(String(50), nullable=True)
+    issue = Column(String(50), nullable=True)
+    pages = Column(String(50), nullable=True)
+    publisher = Column(String(255), nullable=True)
+    doi = Column(String(255), index=True, nullable=True)
+    doi_verified = Column(Boolean, default=False)
+    crossref_meta_json = Column(Text, nullable=True)
+    url = Column(Text, nullable=True)
+    abstract = Column(Text, nullable=True)
+    bibtex_raw = Column(Text, nullable=True)
+    collection_name = Column(String(100), default="Default Library")
+    source = Column(String(50), default="zotero_import")
+    is_vaulted = Column(Boolean, default=False)
+    vault_id = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=get_utc_now)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
+

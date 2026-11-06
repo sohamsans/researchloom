@@ -143,6 +143,39 @@ async def init_db():
                         created_at DATETIME
                     )
                 """))
+
+                # Ensure bibliographic_references exists for Zotero/BibTeX ingestion
+                sync_conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS bibliographic_references (
+                        id VARCHAR(36) PRIMARY KEY,
+                        user_id VARCHAR(36) NULL,
+                        citation_key VARCHAR(128) UNIQUE NOT NULL,
+                        cite_author_year VARCHAR(64) NOT NULL,
+                        entry_type VARCHAR(32) DEFAULT 'article',
+                        title TEXT NOT NULL,
+                        authors_json TEXT NOT NULL,
+                        year INTEGER NULL,
+                        venue VARCHAR(255) NULL,
+                        volume VARCHAR(50) NULL,
+                        issue VARCHAR(50) NULL,
+                        pages VARCHAR(50) NULL,
+                        publisher VARCHAR(255) NULL,
+                        doi VARCHAR(255) NULL,
+                        doi_verified BOOLEAN DEFAULT 0,
+                        crossref_meta_json TEXT NULL,
+                        url TEXT NULL,
+                        abstract TEXT NULL,
+                        bibtex_raw TEXT NULL,
+                        collection_name VARCHAR(100) DEFAULT 'Default Library',
+                        source VARCHAR(50) DEFAULT 'zotero_import',
+                        is_vaulted BOOLEAN DEFAULT 0,
+                        vault_id VARCHAR(64) NULL,
+                        created_at DATETIME,
+                        updated_at DATETIME
+                    )
+                """))
+                sync_conn.execute(text("CREATE INDEX IF NOT EXISTS idx_bibref_doi ON bibliographic_references (doi)"))
+                sync_conn.execute(text("CREATE INDEX IF NOT EXISTS idx_bibref_citekey ON bibliographic_references (citation_key)"))
             except Exception as e:
                 print(f"[DB Auto-Migration Warning] {e}")
 

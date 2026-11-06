@@ -72,6 +72,10 @@ hidden_imports = [
     'app.routers.clipper',
     'app.routers.sync',
     'app.routers.updater',
+    'app.routers.snowball',
+    'app.services.snowball_service',
+    'app.services.matrix_synthesis_service',
+    'app.services.reference_ingestion_service',
     # Scientific Computing & Statistics
     'scipy',
     'scipy.stats',

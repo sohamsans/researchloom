@@ -1,23 +1,97 @@
 import io
 import os
+import re
 import json
 import zipfile
 import asyncio
-from typing import List
+import unicodedata
+from typing import List, Optional
 from app.models.schemas import VaultPaperItem
 from app.services.document_vault_service import fetch_and_vault_paper, sanitize_filename
 
-def generate_bibtex_entry(p: VaultPaperItem, idx: int) -> str:
-    """Format paper as standard BibTeX article entry."""
-    first_author = (p.authors[0].split()[-1].lower()) if p.authors else "author"
-    year = p.year or 2024
-    key = f"{first_author}{year}_{idx+1}"
+LATIN_SPECIAL_MAP = {
+    'Ł': 'L', 'ł': 'l', 'Ø': 'O', 'ø': 'o', 'ß': 'ss', 'Æ': 'AE', 'æ': 'ae',
+    'Œ': 'OE', 'œ': 'oe', 'Ð': 'D', 'ð': 'd', 'Þ': 'TH', 'þ': 'th'
+}
+
+STOP_WORDS = {
+    'a', 'an', 'the', 'in', 'on', 'at', 'for', 'to', 'of', 'and', 'with', 'by',
+    'from', 'as', 'is', 'are', 'was', 'were', 'that', 'this', 'these', 'those'
+}
+
+def escape_latex_text(text_str: str) -> str:
+    """Escapes special LaTeX characters while preserving math blocks ($...$) and protecting uppercase acronyms."""
+    if not text_str:
+        return ""
+    math_pattern = re.compile(r'(\$(?:\\\$|[^$])+\$)')
+    tokens = math_pattern.split(text_str)
+    escaped_tokens = []
+    for token in tokens:
+        if token.startswith('$') and token.endswith('$') and len(token) > 1:
+            escaped_tokens.append(token)
+        else:
+            t = token
+            t = re.sub(r'(?<!\\)((?:\\\\)*)&', r'\1\\&', t)
+            t = re.sub(r'(?<!\\)((?:\\\\)*)%', r'\1\\%', t)
+            t = re.sub(r'(?<!\\)((?:\\\\)*)_', r'\1\\_', t)
+            t = re.sub(r'(?<!\\)((?:\\\\)*)#', r'\1\\#', t)
+            t = re.sub(r'(?<!\{)\b[A-Z]{2,}(?:-[0-9A-Za-z]+)?\b(?!\})', r'{\g<0>}', t)
+            escaped_tokens.append(t)
+    return "".join(escaped_tokens)
+
+def normalize_citation_key(authors: List[str], year: Optional[int], title: str, collision_count: int = 0) -> str:
+    """Computes standardized [Author][Year][ShortTitle] citation key with collision suffix."""
+    author_token = "Unknown"
+    if authors and authors[0]:
+        first_author = authors[0].strip()
+        if "," in first_author:
+            surname = first_author.split(",")[0].strip()
+        else:
+            surname = first_author.split()[-1].strip()
+        surname_trans = "".join(LATIN_SPECIAL_MAP.get(c, c) for c in surname)
+        surname_clean = unicodedata.normalize('NFKD', surname_trans).encode('ascii', 'ignore').decode('ascii')
+        parts = re.split(r'[-\s]+', surname_clean)
+        author_token = "".join(p.capitalize() for p in parts if p) or "Author"
+
+    year_token = str(year) if year and 1800 <= year <= 2100 else "Nd"
+
+    title_token = "Paper"
+    if title:
+        words = re.findall(r'[A-Za-z0-9]+', title)
+        meaningful = [w for w in words if w.lower() not in STOP_WORDS]
+        if meaningful:
+            first_word = meaningful[0]
+            first_trans = "".join(LATIN_SPECIAL_MAP.get(c, c) for c in first_word)
+            first_clean = unicodedata.normalize('NFKD', first_trans).encode('ascii', 'ignore').decode('ascii')
+            title_token = first_clean.capitalize() or "Paper"
+
+    base_key = f"{author_token}{year_token}{title_token}"
+
+    if collision_count <= 0:
+        return base_key
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    idx = collision_count - 1
+    if idx < 26:
+        suffix = letters[idx]
+    else:
+        first = letters[(idx // 26) - 1]
+        second = letters[idx % 26]
+        suffix = f"{first}{second}"
+
+    return f"{base_key}{suffix}"
+
+def generate_bibtex_entry(p: VaultPaperItem, idx: int = 0) -> str:
+    """Format paper as standard BibTeX article entry with standardized key and sanitized fields."""
+    key = normalize_citation_key(p.authors, p.year, p.title)
     authors_str = " and ".join(p.authors) if p.authors else "Unknown"
+    sanitized_title = escape_latex_text(p.title)
+    sanitized_venue = escape_latex_text(p.venue) if p.venue else None
+    year = p.year or 2024
     doi_part = f",\n  doi = {{{p.doi}}}" if p.doi else ""
-    journal = f",\n  journal = {{{p.venue}}}" if p.venue else ""
+    journal = f",\n  journal = {{{sanitized_venue}}}" if sanitized_venue else ""
 
     return f"""@article{{{key},
-  title = {{{p.title}}},
+  title = {{{sanitized_title}}},
   author = {{{authors_str}}},
   year = {{{year}}}{journal}{doi_part}
 }}"""

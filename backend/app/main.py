@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import review, export, assistant, auth, vault, references, notes, flow, tablet, stats, calc, matrix, screening, clipper, sync, updater, mcp_router
+from app.routers import review, export, assistant, auth, vault, references, notes, flow, tablet, stats, calc, matrix, screening, clipper, sync, updater, mcp_router, snowball
 from app.db.database import init_db
 
 @asynccontextmanager
@@ -15,7 +15,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ResearchLoom API",
     description="ResearchLoom (Samhita): Autonomous Literature Review Engine with Dual-Layer Caching, Document Vault, and Multi-Provider BYOK Hub.",
-    version="4.3.1",
+    version="4.3.8",
     lifespan=lifespan
 )
 
@@ -46,6 +46,7 @@ app.include_router(clipper.router)
 app.include_router(sync.router)
 app.include_router(updater.router)
 app.include_router(mcp_router.router)
+app.include_router(snowball.router)
 
 TABLET_PAD_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -278,7 +279,7 @@ def root():
 @app.get("/api/health")
 def health_check():
     """Lightweight health probe used by the desktop splash screen."""
-    return {"status": "ok", "version": "4.3.1"}
+    return {"status": "ok", "version": "4.3.8"}
 
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):

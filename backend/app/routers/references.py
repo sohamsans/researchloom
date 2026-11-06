@@ -188,6 +188,52 @@ async def get_all_references(
             except Exception:
                 continue
 
+        # 4. Load Imported Bibliographic References (Zotero / Better BibTeX)
+        try:
+            stmt_bib = select(BibliographicReference)
+            res_b = await session.execute(stmt_bib)
+            bib_records = res_b.scalars().all()
+            for b in bib_records:
+                key = (b.doi.lower().strip() if b.doi else b.title.lower().strip())
+                authors = []
+                try:
+                    authors = json.loads(b.authors_json) if b.authors_json else []
+                except Exception:
+                    authors = [b.authors_json] if b.authors_json else []
+
+                if key in merged_papers:
+                    merged_papers[key]["citation_key"] = b.citation_key
+                    merged_papers[key]["doi_verified"] = bool(b.doi_verified)
+                else:
+                    merged_papers[key] = {
+                        "id": b.id,
+                        "citation_key": b.citation_key,
+                        "title": b.title,
+                        "authors": authors,
+                        "year": b.year,
+                        "venue": b.venue or "",
+                        "doi": b.doi,
+                        "doi_link": f"https://doi.org/{b.doi}" if b.doi else "",
+                        "doi_verified": bool(b.doi_verified),
+                        "pdf_url": b.url or "",
+                        "pdf_downloaded": False,
+                        "is_vaulted": bool(b.is_vaulted),
+                        "vault_id": b.vault_id,
+                        "file_size_bytes": 0,
+                        "source": b.source or "zotero_import",
+                        "is_synthesized": False,
+                        "relevance_score": 4,
+                        "core_problem": "",
+                        "methodology": "",
+                        "key_findings": "",
+                        "research_gaps": "",
+                        "abstract": b.abstract or "",
+                        "has_figures": False,
+                        "created_at": b.created_at.isoformat() if b.created_at else None
+                    }
+        except Exception as e:
+            print(f"[BibliographicReference Error] {e}")
+
     all_items = list(merged_papers.values())
 
     # Apply filters
@@ -277,3 +323,98 @@ async def export_master_references(req: ExportReferencesRequest):
             media_type="text/plain; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
+
+# ----------------- Reference Ingestion, Sanitization & Crossref Shields -----------------
+from app.models.schemas import (
+    ReferenceImportRequest,
+    ReferenceImportResponse,
+    VerifyDOIRequest,
+    VerifyDOIResponse,
+    BibliographicReferenceItem
+)
+from app.services.reference_ingestion_service import (
+    parse_bibtex_entries,
+    parse_csl_json,
+    ingest_reference_records,
+    verify_doi_crossref
+)
+from app.db.models import BibliographicReference
+
+@router.post("/import", response_model=ReferenceImportResponse)
+async def import_references(req: ReferenceImportRequest):
+    """Import references from BibTeX or CSL-JSON into encrypted local SQLite storage."""
+    warnings: List[str] = []
+    if req.format.lower() in ["csl-json", "json"]:
+        parsed_records = parse_csl_json(req.content, req.collection_name)
+    else:
+        parsed_records = parse_bibtex_entries(req.content, req.collection_name)
+
+    if not parsed_records:
+        warnings.append("No valid bibliographic records could be parsed from the provided input.")
+        return ReferenceImportResponse(
+            total_parsed=0,
+            imported_count=0,
+            duplicates_merged=0,
+            references=[],
+            warnings=warnings
+        )
+
+    total_parsed = len(parsed_records)
+    imported_count, duplicates_merged, refs = await ingest_reference_records(parsed_records)
+
+    return ReferenceImportResponse(
+        total_parsed=total_parsed,
+        imported_count=imported_count,
+        duplicates_merged=duplicates_merged,
+        references=refs,
+        warnings=warnings
+    )
+
+@router.post("/verify-doi", response_model=VerifyDOIResponse)
+async def verify_doi(req: VerifyDOIRequest):
+    """Validate DOI registration against Crossref API under public polite pool rate limits."""
+    return await verify_doi_crossref(req.doi)
+
+@router.get("/collection/{collection_name}")
+async def get_collection_references(collection_name: str = "Default Library"):
+    """Fetch all imported references belonging to a specific collection."""
+    async with AsyncSessionLocal() as session:
+        stmt = select(BibliographicReference).where(BibliographicReference.collection_name == collection_name)
+        res = await session.execute(stmt)
+        records = res.scalars().all()
+
+        items = []
+        for r in records:
+            authors_list = []
+            try:
+                authors_list = json.loads(r.authors_json) if r.authors_json else []
+            except Exception:
+                authors_list = [r.authors_json] if r.authors_json else []
+
+            items.append({
+                "id": r.id,
+                "citation_key": r.citation_key,
+                "cite_author_year": r.cite_author_year,
+                "entry_type": r.entry_type,
+                "title": r.title,
+                "authors": authors_list,
+                "year": r.year,
+                "venue": r.venue,
+                "volume": r.volume,
+                "issue": r.issue,
+                "pages": r.pages,
+                "publisher": r.publisher,
+                "doi": r.doi,
+                "doi_verified": bool(r.doi_verified),
+                "url": r.url,
+                "abstract": r.abstract,
+                "collection_name": r.collection_name,
+                "source": r.source,
+                "is_vaulted": bool(r.is_vaulted),
+                "created_at": r.created_at.isoformat() if r.created_at else None
+            })
+        return {
+            "collection": collection_name,
+            "total": len(items),
+            "items": items
+        }

@@ -3,7 +3,7 @@
 ; system tray integration, clean uninstaller, and per-user installation.
 
 #define MyAppName "ResearchLoom"
-#define MyAppVersion "4.3.7"
+#define MyAppVersion "4.3.8"
 #define MyAppPublisher "ResearchLoom Authors"
 #define MyAppURL "https://github.com/sohamsans/researchloom"
 #define MyAppExeName "ResearchLoom.exe"
@@ -16,10 +16,10 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-VersionInfoVersion=4.3.7.0
+VersionInfoVersion=4.3.8.0
 VersionInfoCompany=ResearchLoom Authors
 VersionInfoDescription=ResearchLoom Setup Installer
-VersionInfoTextVersion=4.3.7
+VersionInfoTextVersion=4.3.8
 VersionInfoCopyright=Copyright (c) 2026 ResearchLoom Authors
 DefaultDirName={autopf}\{#MyAppName}
 DisableDirPage=no

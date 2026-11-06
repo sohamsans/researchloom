@@ -140,6 +140,7 @@ const MainLayout: React.FC = () => {
     doi?: string;
   } | null>(null);
   const [pendingFormulaSnippet, setPendingFormulaSnippet] = useState<string | null>(null);
+  const [pendingComparativeSection, setPendingComparativeSection] = useState<{ title: string; latex: string; bibtex: string[] } | null>(null);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
 
@@ -739,8 +740,10 @@ const MainLayout: React.FC = () => {
               currentTopic={currentTopic}
               incomingCitation={pendingCitationPaper}
               incomingFormulaSnippet={pendingFormulaSnippet}
+              incomingSection={pendingComparativeSection}
               onClearIncomingCitation={() => setPendingCitationPaper(null)}
               onClearIncomingFormula={() => setPendingFormulaSnippet(null)}
+              onClearIncomingSection={() => setPendingComparativeSection(null)}
             />
           </div>
 
@@ -806,6 +809,10 @@ const MainLayout: React.FC = () => {
                 setViewerPage(page || null);
                 setViewerSentence(sentence || null);
                 setIsViewerOpen(true);
+              }}
+              onInsertComparativeSection={(sec) => {
+                setPendingComparativeSection(sec);
+                setMainTab('studio');
               }}
             />
           </div>

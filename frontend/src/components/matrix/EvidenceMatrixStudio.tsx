@@ -16,8 +16,9 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { ReviewPaper, RawPaperMetadata, MatrixColumnDefinition, MatrixCellData } from '../../types';
+import { ReviewPaper, RawPaperMetadata, MatrixColumnDefinition, MatrixCellData, SynthesisDrafterResponse, MatrixPaperSummary } from '../../types';
 import {
+  api,
   fetchWorkspaceMatrix,
   createMatrixColumn,
   deleteMatrixColumn,
@@ -31,12 +32,14 @@ interface EvidenceMatrixStudioProps {
   papers: ReviewPaper[];
   candidatePapers?: RawPaperMetadata[];
   onOpenPdfWithHighlight?: (paperId: string, title: string, page?: number, sentence?: string) => void;
+  onInsertComparativeSection?: (section: { title: string; latex: string; bibtex: string[] }) => void;
 }
 
 export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
   papers = [],
   candidatePapers = [],
-  onOpenPdfWithHighlight
+  onOpenPdfWithHighlight,
+  onInsertComparativeSection
 }) => {
   const { showAlert, showConfirm, showToast } = useNativeDialog();
   const { activeProvider, activeModel, runtimeKeys } = useAuth();
@@ -103,6 +106,13 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
 
   // Search Filter
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Multi-row Selection & Comparative Synthesis State
+  const [selectedPaperIds, setSelectedPaperIds] = useState<Set<string>>(new Set());
+  const [synthesisLens, setSynthesisLens] = useState<'contrastive' | 'discrepancies' | 'consensus' | 'gaps'>('contrastive');
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [synthesisResult, setSynthesisResult] = useState<SynthesisDrafterResponse | null>(null);
+  const [isSynthesisModalOpen, setIsSynthesisModalOpen] = useState(false);
 
   // Pre-set Prompt Templates
   const PROMPT_TEMPLATES = [
@@ -321,6 +331,77 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
     return allPapers.filter((p) => p.title.toLowerCase().includes(q) || (p.doi && p.doi.toLowerCase().includes(q)));
   }, [allPapers, searchQuery]);
 
+  const handleToggleSelectPaper = (paperId: string) => {
+    setSelectedPaperIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(paperId)) next.delete(paperId);
+      else next.add(paperId);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedPaperIds.size === filteredPapers.length) {
+      setSelectedPaperIds(new Set());
+    } else {
+      setSelectedPaperIds(new Set(filteredPapers.map((p) => p.id)));
+    }
+  };
+
+  const handleSynthesizeSelectedSection = async () => {
+    if (selectedPaperIds.size < 2) {
+      showToast('Please select at least 2 papers to synthesize a comparative section.', 'warning');
+      return;
+    }
+
+    const targetPapers = allPapers.filter((p) => selectedPaperIds.has(p.id));
+    const paperSummaries: MatrixPaperSummary[] = targetPapers.map((p) => {
+      const extractedCells: Record<string, string> = {};
+      columns.forEach((col) => {
+        const cData = cells[`${p.id}_${col.id}`];
+        if (cData && cData.value) {
+          extractedCells[col.column_name] = cData.value;
+        }
+      });
+      const fullMeta = papers.find((rp) => rp.id === p.id) || candidatePapers.find((cp) => cp.id === p.id);
+      return {
+        paper_id: p.id,
+        title: p.title,
+        authors: p.authors || [],
+        year: p.year,
+        doi: p.doi,
+        abstract: (fullMeta as any)?.abstract || (fullMeta as any)?.core_problem || '',
+        extracted_cells: extractedCells
+      };
+    });
+
+    setIsSynthesizing(true);
+    showToast(`Synthesizing comparative section using ${synthesisLens} lens...`, 'info');
+
+    try {
+      const res = await api.synthesizeMatrixSection({
+        papers: paperSummaries,
+        synthesis_lens: synthesisLens,
+        topic: 'Comparative Evidence Synthesis',
+        model_provider: activeProvider,
+        model_name: activeModel,
+        groq_api_key: runtimeKeys.groq,
+        gemini_api_key: runtimeKeys.gemini,
+        claude_api_key: (runtimeKeys as any).claude,
+        openai_api_key: (runtimeKeys as any).openai,
+        openrouter_api_key: runtimeKeys.openrouter
+      });
+
+      setSynthesisResult(res);
+      setIsSynthesisModalOpen(true);
+      showToast('Comparative section drafted successfully!', 'success');
+    } catch (err: any) {
+      showAlert(`Synthesis failed: ${err.message}`, 'Synthesis Error', 'error');
+    } finally {
+      setIsSynthesizing(false);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#07080a] text-zinc-200 overflow-hidden">
       {/* Top Action Toolbar */}
@@ -420,7 +501,16 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-zinc-900/90 border-b border-zinc-800 text-zinc-400 uppercase tracking-wider text-[10px] font-semibold">
-                    <th className="py-3 px-4 min-w-[280px] sticky left-0 bg-zinc-900 z-10 border-r border-zinc-800/80">
+                    <th className="py-3 px-3 w-10 text-center sticky left-0 bg-zinc-900 z-20 border-r border-zinc-800">
+                      <input
+                        type="checkbox"
+                        checked={filteredPapers.length > 0 && selectedPaperIds.size === filteredPapers.length}
+                        onChange={handleToggleSelectAll}
+                        className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0 cursor-pointer"
+                        title="Select All"
+                      />
+                    </th>
+                    <th className="py-3 px-4 min-w-[280px] sticky left-10 bg-zinc-900 z-10 border-r border-zinc-800/80">
                       Paper &amp; Source
                     </th>
                     {columns.map((col) => (
@@ -457,9 +547,22 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
                   {filteredPapers.map((paper) => (
-                    <tr key={paper.id} className="hover:bg-zinc-900/40 transition-colors">
+                    <tr
+                      key={paper.id}
+                      className={`hover:bg-zinc-900/40 transition-colors ${
+                        selectedPaperIds.has(paper.id) ? 'bg-emerald-950/20' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-3 w-10 text-center sticky left-0 bg-zinc-950/95 z-20 border-r border-zinc-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedPaperIds.has(paper.id)}
+                          onChange={() => handleToggleSelectPaper(paper.id)}
+                          className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
                       {/* Paper metadata column (Sticky Left) */}
-                      <td className="py-3 px-4 sticky left-0 bg-zinc-950/95 z-10 border-r border-zinc-800/80">
+                      <td className="py-3 px-4 sticky left-10 bg-zinc-950/95 z-10 border-r border-zinc-800/80">
                         <h4 className="font-medium text-zinc-200 leading-snug line-clamp-2" title={paper.title}>
                           {paper.title}
                         </h4>
@@ -801,6 +904,137 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Bottom Action Dock for Selected Papers */}
+      {selectedPaperIds.size >= 2 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-zinc-950/95 border border-zinc-700/80 rounded-2xl p-2.5 px-4 shadow-2xl flex items-center gap-3 backdrop-blur-md animate-in slide-in-from-bottom duration-200">
+          <div className="flex items-center gap-2 pr-3 border-r border-zinc-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-semibold text-zinc-100">
+              {selectedPaperIds.size} Papers Selected
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-zinc-400 font-medium">Lens:</span>
+            {(['contrastive', 'discrepancies', 'consensus', 'gaps'] as const).map((lens) => (
+              <button
+                key={lens}
+                type="button"
+                onClick={() => setSynthesisLens(lens)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-colors ${
+                  synthesisLens === lens
+                    ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800'
+                }`}
+              >
+                {lens}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSynthesizeSelectedSection}
+            disabled={isSynthesizing}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold transition shadow-md disabled:opacity-50 cursor-pointer"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${isSynthesizing ? 'animate-spin' : ''}`} />
+            <span>{isSynthesizing ? 'Synthesizing...' : '⚡ Synthesize Comparative Section'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Synthesis Result Modal */}
+      {isSynthesisModalOpen && synthesisResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60">
+              <div>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  {synthesisResult.lens_applied} synthesis • {synthesisResult.model_used}
+                </span>
+                <h3 className="text-base font-semibold text-zinc-100 mt-2">
+                  {synthesisResult.section_title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSynthesisModalOpen(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs text-zinc-300 leading-relaxed">
+              {synthesisResult.paragraphs.map((para, idx) => (
+                <div key={idx} className="p-4 rounded-xl bg-zinc-950/70 border border-zinc-800/80 space-y-2">
+                  <h4 className="font-semibold text-sm text-zinc-100">
+                    {para.subheading}
+                  </h4>
+                  <p className="text-zinc-300 whitespace-pre-wrap leading-relaxed font-serif text-[13px]">
+                    {para.text}
+                  </p>
+                  {para.cited_keys && para.cited_keys.length > 0 && (
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-zinc-800/60 flex-wrap">
+                      <span className="text-[10px] text-zinc-500 font-mono">Citations:</span>
+                      {para.cited_keys.map((k) => (
+                        <span key={k} className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 font-mono text-[10px] text-emerald-400">
+                          \cite&#123;{k}&#125;
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 border-t border-zinc-800 bg-zinc-950/80 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(synthesisResult.full_latex_section);
+                    showToast('LaTeX section copied to clipboard!', 'success');
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-zinc-800 hover:bg-zinc-800 text-xs font-medium text-zinc-300 transition"
+                >
+                  Copy LaTeX
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const md = synthesisResult.paragraphs.map((p) => `### ${p.subheading}\n\n${p.text}`).join('\n\n');
+                    navigator.clipboard.writeText(md);
+                    showToast('Markdown copied to clipboard!', 'success');
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-zinc-800 hover:bg-zinc-800 text-xs font-medium text-zinc-300 transition"
+                >
+                  Copy Markdown
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onInsertComparativeSection?.({
+                    title: synthesisResult.section_title,
+                    latex: synthesisResult.full_latex_section,
+                    bibtex: synthesisResult.bibtex_entries
+                  });
+                  setIsSynthesisModalOpen(false);
+                  showToast('Inserted section into Writing Studio!', 'success');
+                }}
+                className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold shadow-md flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Insert into Writing Studio</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

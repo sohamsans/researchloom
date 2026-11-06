@@ -403,3 +403,25 @@ async def generate_ai_flow_map(req: GenerateAIFlowMapRequest):
         "nodes": nodes,
         "edges": edges
     }
+
+# ----------------- Citation Snowballing Flow Aliases -----------------
+from app.services.snowball_service import perform_citation_snowballing
+from app.models.schemas import SnowballResponse
+
+@router.get("/snowball/backward/{paper_id:path}", response_model=SnowballResponse)
+async def get_flow_backward_snowballing(paper_id: str, max_results: int = Query(default=25, ge=5, le=100)):
+    try:
+        return await perform_citation_snowballing(paper_id, direction="backward", max_results=max_results)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/snowball/forward/{paper_id:path}", response_model=SnowballResponse)
+async def get_flow_forward_snowballing(paper_id: str, max_results: int = Query(default=25, ge=5, le=100)):
+    try:
+        return await perform_citation_snowballing(paper_id, direction="forward", max_results=max_results)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

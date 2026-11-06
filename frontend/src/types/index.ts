@@ -363,3 +363,129 @@ export interface PRISMAStatsResponse {
   recent_audit_log: ScreeningAuditItem[];
 }
 
+// ----------------- Citation Snowballing Types -----------------
+
+export interface SnowballSeedMetadata {
+  openalex_id: string;
+  doi?: string;
+  title: string;
+  year?: number;
+  authors: string[];
+  cited_by_count: number;
+  referenced_works_count: number;
+  venue?: string;
+  is_oa: boolean;
+  oa_url?: string;
+}
+
+export interface SnowballPaperItem {
+  id: string;
+  doi?: string;
+  title: string;
+  year?: number;
+  authors: string[];
+  cited_by_count: number;
+  venue?: string;
+  abstract: string;
+  is_oa: boolean;
+  oa_url?: string;
+  relation: 'predecessor' | 'successor';
+  source: string;
+}
+
+export interface SnowballResponse {
+  seed: SnowballSeedMetadata;
+  direction: 'backward' | 'forward';
+  total_count: number;
+  papers: SnowballPaperItem[];
+  warnings: string[];
+}
+
+// ----------------- Evidence Matrix Synthesis Types -----------------
+
+export interface MatrixPaperSummary {
+  paper_id: string;
+  title: string;
+  authors: string[];
+  year?: number;
+  doi?: string;
+  abstract?: string;
+  extracted_cells?: Record<string, string>;
+}
+
+export interface SynthesisDrafterRequest {
+  papers: MatrixPaperSummary[];
+  synthesis_lens: 'contrastive' | 'discrepancies' | 'consensus' | 'gaps';
+  topic: string;
+  model_provider?: ModelProvider;
+  model_name?: string;
+  groq_api_key?: string;
+  gemini_api_key?: string;
+  claude_api_key?: string;
+  openai_api_key?: string;
+  openrouter_api_key?: string;
+  deepseek_api_key?: string;
+  nvidia_api_key?: string;
+  custom_api_key?: string;
+  custom_base_url?: string;
+}
+
+export interface SynthesisParagraph {
+  subheading: string;
+  text: string;
+  cited_keys: string[];
+}
+
+export interface SynthesisDrafterResponse {
+  section_title: string;
+  paragraphs: SynthesisParagraph[];
+  full_latex_section: string;
+  bibtex_entries: string[];
+  model_used: string;
+  lens_applied: string;
+}
+
+// ----------------- Bibliographic Reference Types -----------------
+
+export interface BibliographicReferenceItem {
+  id: string;
+  citation_key: string;
+  cite_author_year: string;
+  entry_type: string;
+  title: string;
+  authors: string[];
+  year?: number;
+  venue?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  publisher?: string;
+  doi?: string;
+  doi_verified: boolean;
+  url?: string;
+  abstract?: string;
+  bibtex_raw?: string;
+  collection_name: string;
+  source: string;
+  is_vaulted: boolean;
+  created_at?: string;
+}
+
+export interface ReferenceImportResponse {
+  total_parsed: number;
+  imported_count: number;
+  duplicates_merged: number;
+  references: BibliographicReferenceItem[];
+  warnings: string[];
+}
+
+export interface VerifyDOIResponse {
+  doi: string;
+  verified: boolean;
+  title?: string;
+  venue?: string;
+  year?: number;
+  citation_count?: number;
+  error?: string;
+}
+
