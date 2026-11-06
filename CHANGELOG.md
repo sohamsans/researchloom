@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.3.8] - 2026-11-07
+
+### Added
+- **Top 5 Community Research Features**:
+  1. **Dual-Lineage Forward & Backward Citation Snowballing (`snowball_service.py` & `FlowMapCanvas.tsx`)**:
+     - Recursive OpenAlex polite pool citation traversal resolving predecessor roots (works cited by seed) and successor branches (works citing seed).
+     - Interactive dual lineage layout in `FlowMapCanvas`: predecessors expand leftward in amber tones (`#arrowhead-amber`), successors expand rightward in cyan tones (`#arrowhead-cyan`).
+     - Spatial collision prevention with 152px horizontal clearance guaranteeing seed paper and hub folders are never occluded.
+  2. **Evidence Matrix Comparative Synthesis Drafter (`matrix_synthesis_service.py` & `EvidenceMatrixStudio.tsx`)**:
+     - Dynamic multi-row paper selection with 4 analytical lenses: `contrastive` (head-to-head methodology comparison), `discrepancies` (conflicting empirical findings), `consensus` (shared theoretical baselines), and `gaps` (underexplored research vectors).
+     - Strict character budgeting: dynamic per-paper ceiling $\lfloor 9,500 / N \rfloor \le 12,000$ characters total payload respecting lightweight cloud models.
+     - Whitelist verification firewall ensuring every `\cite{AuthorYear}` matches loaded papers.
+     - 1-click injection directly into `WritingStudio` inserting synthesized LaTeX subsections and BibTeX entries before `\end{document}`.
+  3. **Publication-Ready PRISMA 2020 Flow Diagram Exporter (`PRISMAFlowDiagram.tsx`)**:
+     - Vector SVG export via direct DOM `XMLSerializer` blob download.
+     - High-resolution 300 DPI publication PDF export rasterized via HTML5 canvas.
+     - 1-click Overleaf native LaTeX TikZ code generator producing standalone compilable `.tex` diagram files.
+  4. **Automated BibTeX Sanitizer, Deduplicator & Key Formatter (`bulk_download_service.py`)**:
+     - Standardized citation key generation: `[FirstAuthorLastName][Year][FirstMeaningfulTitleWord]` (e.g., `Vaswani2017Attention`).
+     - Latin diacritics transliteration (`Ł` $\to$ `L`, `Ø` $\to$ `O`, `ß` $\to$ `ss`).
+     - Key collision cascade with alphabetic suffix disambiguation (`a`–`z`, `aa`–`zz`).
+     - Parity-aware negative lookbehind LaTeX escaping (`(?<!\\)((?:\\\\)*)(&)` $\to$ `\1\\&`) and inline math block protection (`(\$(?:\\\$|[^$])+\$)`).
+  5. **1-Click Zotero & Better BibTeX Collection Importer (`reference_ingestion_service.py` & `MasterReferenceManager.tsx`)**:
+     - Drag-and-drop `.bib` and `.csl-json` dropzone with atomic duplicate merging by DOI and key collision disambiguation.
+     - Crossref validation shields: 🟢 Verified (metadata confirmed with DOI resolver), 🟡 Unverified with 1-click live Crossref lookup under `asyncio.Semaphore(5)` rate limiting.
+     - Upgraded Master Reference Manager to anti-slop dark zinc aesthetic (`bg-zinc-950`, `border-zinc-800`).
+
+---
+
+## [v4.3.7] - 2026-11-05
+
+### Added
+- **Multi-LLM Council Deliberation Engine**:
+  - Independent multi-model cross-examination across Groq, Gemini, Anthropic Claude, and OpenAI GPT models with consensus voting.
+- **Academic Anti-Noise Filter**:
+  - Automatically identifies and filters out journal cover pages, tables of contents, editorials, and website snippets before LLM ingestion.
+- **Loom Clipper & Google Scholar Ingestion**:
+  - Companion browser extension allowing 1-click clipping and live relevance checking directly on Google Scholar search results.
+- **P2P Local Sync & Vault Encryption**:
+  - LAN-based peer discovery with AES-256 Fernet encrypted paper payloads.
+
+---
+
 ## [v4.3.5] - 2026-11-03
 
 ### Added
