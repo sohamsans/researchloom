@@ -70,12 +70,19 @@
 ## Features
 
 - **Multi-Engine Academic Discovery**: Searches OpenAlex (100,000 requests/day polite pool), arXiv API, Crossref, Europe PMC, and DOAJ without requiring paid academic subscriptions.
+- **Dual-Lineage Forward & Backward Citation Snowballing**: Recursively traverses works cited by any paper (predecessors in amber expanding leftward) and subsequent works citing the paper (successors in cyan expanding rightward) on an interactive 60 FPS canvas with guaranteed collision-free spatial layouts.
+- **Evidence Matrix & Comparative Synthesis Drafter**: Multi-paper selection dock allowing researchers to draft structured cross-study syntheses across 4 analytical lenses (`contrastive`, `discrepancies`, `consensus`, `gaps`) with an anti-hallucination citation whitelist and 1-click injection into the Writing Studio.
+- **Publication-Ready PRISMA 2020 Flow Diagram Exporter**: Generates vector SVG downloads, 300 DPI high-resolution journal PDFs, and 1-click Overleaf native LaTeX TikZ code utilizing official PRISMA colorways.
+- **Automated BibTeX Sanitizer, Deduplicator & Key Formatter**: Standardizes keys into `[Author][Year][ShortTitle]` (e.g. `Vaswani2017Attention`), normalizes Latin diacritics, resolves key collisions with alphabetic suffixes, and applies parity-aware LaTeX escaping.
+- **1-Click Zotero & Better BibTeX Collection Importer**: Drag-and-drop `.bib` and `.csl-json` vault ingestion with atomic duplicate merging and live Crossref DOI verification shields (🟢 Verified / 🟡 Unverified).
+- **Multi-LLM Council Deliberation Engine**: Independent multi-model cross-examination across Groq, Gemini, Claude, and OpenAI with consensus scoring and disagreement breakdowns.
+- **Academic Anti-Noise Filter**: Automatically detects and prunes journal covers, tables of contents, editorial boards, and website fragments before synthesis.
+- **Loom Clipper & Google Scholar Companion**: Chrome browser extension providing 1-click literature clipping and live relevance check directly from Google Scholar search results.
 - **Two-Stage LLM Evaluation**:
   - **Stage 1 (Batch Triage)**: Evaluates batches of candidate abstracts simultaneously using lightweight, fast models (Groq Llama 3.1 8B or Gemini Flash 8B).
   - **Stage 2 (Deep Extraction)**: Extracts core research questions, methodologies, empirical benchmarks, and research limitations into structured schemas.
 - **Local Document Vault (`ResearchLoom Papers`)**: Downloads and caches full-text papers directly inside a local folder on your computer. Includes an inline in-app PDF reader.
 - **Interactive Research Chatbot**: Context-grounded conversational interface for asking detailed questions across the synthesized paper collection, with dynamic KaTeX LaTeX rendering and clickable citation badges.
-- **Reference Manager**: Exports formatted references across BibTeX, APA, MLA, and RIS formats, as well as Excel (`.xlsx`) and CSV tables.
 - **Bring Your Own Key (BYOK) Security**: API keys are encrypted locally using AES-256 via Fernet cryptography in SQLite. No keys are hardcoded or shared.
 
 ---
@@ -90,19 +97,24 @@ researchloom/
 │   │   ├── config.py            # Environment configuration and settings
 │   │   ├── db/                  # SQLite schema and session lifecycle
 │   │   ├── models/schemas.py    # Pydantic data models and validation contracts
-│   │   ├── services/            # Search cascades, PDF slicing, LLM drivers, vault
-│   │   └── routers/             # API endpoints (review, vault, assistant, auth)
+│   │   ├── services/            # Snowballing, synthesis, citation sanitizer, vault
+│   │   └── routers/             # API endpoints (snowball, matrix, references, council)
 │   ├── requirements.txt         # Python dependencies
 │   ├── Dockerfile               # Container build definition
 │   └── litbuddy_app.py          # Native desktop application entrypoint (pywebview)
 ├── frontend/
 │   ├── src/                     # React 18 + TypeScript user interface
-│   │   ├── components/          # Tables, sidebars, PDF viewer, chat drawer
+│   │   ├── components/          # FlowMap, EvidenceMatrix, PRISMA, WritingStudio
 │   │   ├── services/            # API client and client-side Excel exporters
 │   │   └── types/               # TypeScript interfaces
+│   ├── android/                 # Native Android Capacitor port with Stylus support
 │   ├── package.json
 │   └── vite.config.ts
-├── netlify.toml                 # Production Netlify routing and deployment config
+├── packaging/
+│   └── windows/installer.iss    # Inno Setup 6 modern installer script
+├── litbuddy.spec                # PyInstaller specification for Windows
+├── litbuddy_mac.spec            # PyInstaller specification for macOS (.app/.dmg)
+├── litbuddy_linux.spec          # PyInstaller specification for Linux (.AppImage)
 └── build_windows_exe.bat        # Automated Windows desktop build script
 ```
 
@@ -110,36 +122,31 @@ researchloom/
 
 ## Standalone Downloads & Multi-Platform Support
 
-ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready desktop application for both Windows and macOS:
+ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready desktop and tablet application across all major platforms:
 
-### 1. Windows (10/11 64-bit)
-- **Direct GitHub Releases**: [https://github.com/sohamsans/researchloom/releases](https://github.com/sohamsans/researchloom/releases)
-- **Package Archive (Recommended)**: `ResearchLoom-v4.3.1-windows-x64.zip`
-- **Standalone Binary**: `ResearchLoom.exe` (~110 MB, single executable, zero setup)
+### Latest Release: [`v4.3.8`](https://github.com/sohamsans/researchloom/releases/tag/v4.3.8)
 
-### 2. macOS (Apple Silicon M-Series & Intel)
-- **macOS Disk Image**: Download `ResearchLoom-macOS-arm64.dmg` from the [Releases](https://github.com/sohamsans/researchloom/releases) page. Open the `.dmg` and drag `ResearchLoom.app` into your Applications folder.
-- **Local Run (Alternative)**:
-  ```bash
-  git clone https://github.com/sohamsans/researchloom.git
-  cd researchloom
-  pip install -r backend/requirements.txt pywebview
-  python backend/litbuddy_app.py
-  ```
+| Operating System | Package Format | Download Link | Features |
+| :--- | :--- | :--- | :--- |
+| **Windows 10/11 (64-bit)** | Inno Setup Installer (`.exe`) | [`ResearchLoom-Setup.exe`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-Setup.exe) | Desktop shortcuts, system tray auto-minimize, uninstaller |
+| **Windows 10/11 (64-bit)** | Portable Standalone (`.exe`) | [`ResearchLoom.exe`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom.exe) | Zero-installation, single portable binary |
+| **Windows 10/11 (64-bit)** | ZIP Archive (`.zip`) | [`ResearchLoom-windows-x64.zip`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-windows-x64.zip) | Portable zipped bundle |
+| **macOS (Apple Silicon M-Series)** | Native Disk Image (`.dmg`) | [`ResearchLoom-macOS-arm64.dmg`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-macOS-arm64.dmg) | Drag-and-drop to Applications folder |
+| **Linux (x86_64)** | Universal AppImage (`.AppImage`) | [`ResearchLoom-linux-x86_64.AppImage`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-linux-x86_64.AppImage) | Single-file portable Linux binary (Ubuntu, Fedora, Arch) |
+| **Linux (x86_64)** | Tarball Archive (`.tar.gz`) | [`ResearchLoom-linux-x86_64.tar.gz`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-linux-x86_64.tar.gz) | Complete Linux runtime archive |
+| **Android Tablets** | Standalone APK (`.apk`) | [`ResearchLoom-android-tablet.apk`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-android-tablet.apk) | Samsung S-Pen & Xiaomi Smart Pen active stylus dynamics |
 
-### 3. Android Tablets (Samsung Galaxy Tab, Pixel Tablet, S-Pen & Active Stylus)
-- **Native Android APK**: Download `ResearchLoom-android-tablet.apk` from [Releases](https://github.com/sohamsans/researchloom/releases) to install directly on your Android tablet.
-- **Hardware Stylus Features**:
-  - Full hardware pressure dynamics (`0.0` - `1.0`) with Samsung S-Pen and universal USI styluses.
-  - Automatic palm rejection and multi-touch gesture rejection during pen contact.
-  - Interactive Flow Maps, Formula Scratchpads, and Academic Writing Studio optimized for landscape tablet screens.
-  - Local offline storage on tablet device.
+### Hardware Stylus & Tablet Features (Android)
+- **Active Pressure Sensitivity**: Full hardware pressure dynamics (`0.0` - `1.0`) with S-Pen, Xiaomi Smart Pen, and USI active styluses.
+- **Physical Barrel Button Integration**: Native hardware button event interception to cycle between Pen, Highlighter, Stroke Eraser, and Pixel Eraser without screen touch.
+- **Palm Rejection**: Complete gesture rejection during pen tip contact.
+- **Offline Device Storage**: 100% standalone offline literature discovery and local paper vault on tablet.
 
 ### Note on Unsigned App Prompts
-Because ResearchLoom is a free open-source project without commercial corporate code-signing certificates:
+Because ResearchLoom is a free non-commercial open-source research tool without expensive corporate code-signing certificates:
 1. **Windows SmartScreen**: Click **More info** and select **Run anyway**.
 2. **macOS Gatekeeper**: On first launch, if macOS displays an unidentified developer prompt, right-click (or Control-click) `ResearchLoom.app` and choose **Open**, then confirm.
-The software is 100% open-source with full code inspection available in this repository.
+3. **Linux**: Run `chmod +x ResearchLoom-linux-x86_64.AppImage` and launch.
 
 ---
 
