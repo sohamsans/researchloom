@@ -3,7 +3,24 @@
  * Enables 100% standalone operation on mobile and tablets without a desktop server.
  */
 
-import { RawPaperMetadata, ReviewPaper, SearchRequest, DiscoveryResponse, PipelineResponse } from '../types';
+import {
+  RawPaperMetadata,
+  ReviewPaper,
+  SearchRequest,
+  DiscoveryResponse,
+  PipelineResponse,
+  SnowballResponse,
+  SnowballSeedMetadata,
+  SnowballPaperItem,
+  ScreeningDecisionRequest,
+  ScreeningAuditItem,
+  PRISMAStatsResponse,
+  SynthesisDrafterRequest,
+  SynthesisDrafterResponse,
+  BibliographicReferenceItem,
+  ReferenceImportResponse,
+  VerifyDOIResponse
+} from '../types';
 
 interface OpenAlexWork {
   id: string;
@@ -402,5 +419,448 @@ Do not include markdown code block formatting or backticks around the JSON.`;
     total_selected: synthesizedList.length,
     papers: synthesizedList,
     warnings: []
+  };
+}
+
+// ============================================================================
+// STANDALONE CITATION SNOWBALLING (OpenAlex Direct CORS)
+// ============================================================================
+
+export async function executeStandaloneSnowballing(
+  seedIdentifier: string,
+  direction: 'backward' | 'forward',
+  maxResults: number = 25,
+  title?: string
+): Promise<SnowballResponse> {
+  let cleanId = seedIdentifier.trim();
+  const politeEmail = 'autolit@research.local';
+  let seedWork: OpenAlexWork | null = null;
+  const warnings: string[] = [];
+
+  // 1. Try canonical OpenAlex ID W...
+  if (/^W\d+$/i.test(cleanId)) {
+    try {
+      const resp = await fetch(`https://api.openalex.org/works/${cleanId.toUpperCase()}?mailto=${politeEmail}`);
+      if (resp.ok) seedWork = await resp.json();
+    } catch {}
+  }
+
+  // 2. Try arXiv ID (normalize arxiv_1706_03762 or arxiv:1706.03762)
+  if (!seedWork) {
+    let normArxiv = cleanId.replace(/^arxiv[_\:]/i, '').trim();
+    if (normArxiv.includes('_') && /^\d{4}_\d{4,5}(?:v\d+)?$/i.test(normArxiv)) {
+      normArxiv = normArxiv.replace('_', '.');
+    }
+    const match = normArxiv.match(/^(\d{4}\.\d{4,5}(?:v\d+)?)$/i);
+    if (match) {
+      try {
+        const resp = await fetch(`https://api.openalex.org/works/https://arxiv.org/abs/${match[1]}?mailto=${politeEmail}`);
+        if (resp.ok) seedWork = await resp.json();
+      } catch {}
+    }
+  }
+
+  // 3. Try DOI
+  if (!seedWork) {
+    let cleanDoi = cleanId;
+    for (const prefix of ['https://doi.org/', 'http://doi.org/', 'http://dx.doi.org/', 'https://dx.doi.org/', 'doi:']) {
+      if (cleanDoi.toLowerCase().startsWith(prefix)) {
+        cleanDoi = cleanDoi.slice(prefix.length);
+        break;
+      }
+    }
+    if (cleanDoi.includes('/')) {
+      try {
+        const resp = await fetch(`https://api.openalex.org/works/https://doi.org/${encodeURIComponent(cleanDoi)}?mailto=${politeEmail}`);
+        if (resp.ok) seedWork = await resp.json();
+      } catch {}
+    }
+  }
+
+  // 4. Try title search or cleanId search if not synthetic
+  if (!seedWork) {
+    const searchQuery = title && title.trim().length > 3 ? title.trim() : (!cleanId.startsWith('synth_') && cleanId.length > 3 ? cleanId : '');
+    if (searchQuery) {
+      try {
+        const resp = await fetch(`https://api.openalex.org/works?search=${encodeURIComponent(searchQuery)}&per-page=1&mailto=${politeEmail}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.results && data.results.length > 0) {
+            seedWork = data.results[0];
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // If still not resolved from OpenAlex, fallback to local synthetic metadata
+  const canonicalId = seedWork?.id ? seedWork.id.split('/').pop() || seedWork.id : (cleanId.startsWith('W') ? cleanId : `local_${Date.now()}`);
+  const seedTitle = seedWork?.title || title || 'Seed Paper';
+  const seedYear = seedWork?.publication_year || undefined;
+  const seedAuthors = seedWork?.authorships?.map(a => a.author?.display_name).filter(Boolean) as string[] || ['Unknown Author'];
+
+  const seedMeta: SnowballSeedMetadata = {
+    openalex_id: canonicalId,
+    doi: seedWork?.doi?.replace('https://doi.org/', '') || undefined,
+    title: seedTitle,
+    year: seedYear,
+    authors: seedAuthors,
+    cited_by_count: (seedWork as any)?.cited_by_count || 0,
+    referenced_works_count: (seedWork as any)?.referenced_works?.length || 0,
+    venue: seedWork?.primary_location?.source?.display_name || undefined,
+    is_oa: !!seedWork?.open_access?.is_oa,
+    oa_url: seedWork?.open_access?.oa_url || seedWork?.primary_location?.pdf_url || undefined
+  };
+
+  if (!seedWork || !seedWork.id) {
+    warnings.push('Could not locate seed on OpenAlex. Live citation network unavailable offline.');
+    return {
+      seed: seedMeta,
+      direction,
+      total_count: 0,
+      papers: [],
+      warnings
+    };
+  }
+
+  // Query OpenAlex for cited_by (backward) or cites (forward)
+  const filterParam = direction === 'backward' ? `cited_by:${canonicalId}` : `cites:${canonicalId}`;
+  const relationLabel: 'predecessor' | 'successor' = direction === 'backward' ? 'predecessor' : 'successor';
+  const queryUrl = `https://api.openalex.org/works?filter=${filterParam}&per-page=${maxResults}&sort=cited_by_count:desc&mailto=${politeEmail}`;
+
+  try {
+    const resp = await fetch(queryUrl);
+    if (!resp.ok) throw new Error(`OpenAlex HTTP ${resp.status}`);
+    const data = await resp.json();
+    const results: OpenAlexWork[] = data.results || [];
+
+    const papers: SnowballPaperItem[] = results.map(w => {
+      const wId = w.id ? w.id.split('/').pop() || w.id : `w_${Date.now()}`;
+      return {
+        id: wId,
+        doi: w.doi ? w.doi.replace('https://doi.org/', '') : undefined,
+        title: w.title || 'Untitled Paper',
+        year: w.publication_year || undefined,
+        authors: w.authorships?.map(a => a.author?.display_name).filter(Boolean) as string[] || ['Unknown Author'],
+        cited_by_count: (w as any).cited_by_count || 0,
+        venue: w.primary_location?.source?.display_name || undefined,
+        abstract: reconstructAbstract(w.abstract_inverted_index),
+        is_oa: !!w.open_access?.is_oa,
+        oa_url: w.open_access?.oa_url || w.primary_location?.pdf_url || undefined,
+        relation: relationLabel,
+        source: 'openalex'
+      };
+    });
+
+    return {
+      seed: seedMeta,
+      direction,
+      total_count: data.meta?.count || papers.length,
+      papers,
+      warnings
+    };
+  } catch (err: any) {
+    warnings.push(`Could not fetch citations: ${err.message || 'Offline or network blocked'}`);
+    return {
+      seed: seedMeta,
+      direction,
+      total_count: 0,
+      papers: [],
+      warnings
+    };
+  }
+}
+
+// ============================================================================
+// STANDALONE PRISMA 2020 SCREENING & AUDIT (LocalStorage Persistence)
+// ============================================================================
+
+const SCREENING_STORAGE_PREFIX = 'researchloom_screening_decisions_';
+
+export function saveStandaloneScreeningDecision(req: ScreeningDecisionRequest): ScreeningAuditItem {
+  const wsId = req.workspace_id || 'default_workspace';
+  const storageKey = `${SCREENING_STORAGE_PREFIX}${wsId}`;
+  const existingRaw = localStorage.getItem(storageKey);
+  const existing: ScreeningAuditItem[] = existingRaw ? JSON.parse(existingRaw) : [];
+
+  const auditItem: ScreeningAuditItem = {
+    id: `decision_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    workspace_id: wsId,
+    paper_id: req.paper_id,
+    paper_title: req.paper_title,
+    paper_doi: req.paper_doi,
+    action: req.action,
+    exclusion_reason: req.exclusion_reason,
+    stage: req.stage || 'screening',
+    reviewer_id: req.reviewer_id || 'primary_researcher',
+    notes: req.notes,
+    created_at: new Date().toISOString()
+  };
+
+  // Upsert decision (if paper already decided, replace with newest)
+  const filtered = existing.filter(d => d.paper_id !== req.paper_id);
+  filtered.push(auditItem);
+  localStorage.setItem(storageKey, JSON.stringify(filtered));
+
+  return auditItem;
+}
+
+export function getStandalonePRISMAStats(workspaceId: string = 'default_workspace', totalIdentified: number = 0): PRISMAStatsResponse {
+  const storageKey = `${SCREENING_STORAGE_PREFIX}${workspaceId}`;
+  const existingRaw = localStorage.getItem(storageKey);
+  const decisions: ScreeningAuditItem[] = existingRaw ? JSON.parse(existingRaw) : [];
+
+  let screenExcluded = 0;
+  const screenExcludedByReason: Record<string, number> = {};
+  let totalIncluded = 0;
+
+  decisions.forEach(d => {
+    if (d.action === 'excluded') {
+      screenExcluded++;
+      const reason = d.exclusion_reason || 'Other / Unspecified';
+      screenExcludedByReason[reason] = (screenExcludedByReason[reason] || 0) + 1;
+    } else if (d.action === 'included') {
+      totalIncluded++;
+    }
+  });
+
+  const totalScreened = decisions.length;
+  const identifiedCount = Math.max(totalIdentified, totalScreened);
+
+  return {
+    total_identified: identifiedCount,
+    duplicates_removed: 0,
+    total_screened: totalScreened,
+    screen_excluded: screenExcluded,
+    screen_excluded_by_reason: screenExcludedByReason,
+    eligibility_assessed: totalIncluded,
+    eligibility_excluded: 0,
+    eligibility_excluded_by_reason: {},
+    total_included: totalIncluded,
+    recent_audit_log: decisions.slice(-20).reverse()
+  };
+}
+
+// ============================================================================
+// STANDALONE EVIDENCE MATRIX SYNTHESIS (Client BYOK LLM)
+// ============================================================================
+
+export async function executeStandaloneMatrixSynthesis(
+  req: SynthesisDrafterRequest,
+  keys: { groq?: string; gemini?: string; claude?: string; openai?: string; openrouter?: string },
+  provider: 'groq' | 'gemini' | 'claude' | 'openai' | 'openrouter' = 'groq'
+): Promise<SynthesisDrafterResponse> {
+  const paperSummaries = req.papers.map((p, idx) => {
+    const citeKey = `${(p.authors[0] || 'Unknown').split(' ')[0]}${p.year || 2024}`;
+    return `[${citeKey}] "${p.title}" (${p.year || 'N/A'})\nAbstract: ${p.abstract?.slice(0, 500) || 'N/A'}\nKey cells: ${JSON.stringify(p.extracted_cells || {})}`;
+  }).join('\n\n');
+
+  const lensPrompt = {
+    contrastive: 'Highlight core methodological differences, trade-offs, and divergent conclusions between the studies.',
+    discrepancies: 'Focus sharply on empirical conflicts, contradictory metrics, and disputed claims.',
+    consensus: 'Synthesize shared principles, robust commonalities, and universal baselines across the works.',
+    gaps: 'Identify unaddressed questions, benchmark omissions, and critical research frontiers left open.'
+  }[req.synthesis_lens] || 'Synthesize comparative insights across the literature.';
+
+  const systemPrompt = `You are a distinguished academic synthesis specialist. Synthesize the provided papers into a rigorous, publication-grade academic section adhering to the lens: ${req.synthesis_lens.toUpperCase()}.
+Requirements:
+1. Provide a section_title.
+2. Structure the text into 2-3 scholarly paragraphs. In each paragraph, embed standard academic citation keys (e.g. \\cite{Vaswani2017}) and list cited_keys in the cited_keys array.
+3. Provide full_latex_section containing the complete formatted LaTeX code.
+4. Provide bibtex_entries as an array of BibTeX strings for the cited works.
+Output ONLY valid JSON matching this structure:
+{
+  "section_title": "string",
+  "paragraphs": [
+    {
+      "subheading": "string",
+      "text": "string",
+      "cited_keys": ["Key2024"]
+    }
+  ],
+  "full_latex_section": "string",
+  "bibtex_entries": ["@article{...}"]
+}
+Do not wrap in markdown or backticks.`;
+
+  const rawJson = await callClientLLM(
+    `Topic: "${req.topic}"\n\nAnalytical Directive: ${lensPrompt}\n\nEvidence Papers:\n${paperSummaries}`,
+    systemPrompt,
+    keys,
+    provider
+  );
+
+  const cleanJson = rawJson.replace(/```json/gi, '').replace(/```/g, '').trim();
+  try {
+    const parsed = JSON.parse(cleanJson);
+    return {
+      section_title: parsed.section_title || `Comparative Analysis: ${req.topic}`,
+      paragraphs: parsed.paragraphs || [],
+      full_latex_section: parsed.full_latex_section || '',
+      bibtex_entries: parsed.bibtex_entries || [],
+      model_used: `Standalone client (${provider})`,
+      lens_applied: req.synthesis_lens
+    };
+  } catch {
+    return {
+      section_title: `Comparative Analysis: ${req.topic}`,
+      paragraphs: [
+        {
+          subheading: 'Synthesis Overview',
+          text: cleanJson,
+          cited_keys: []
+        }
+      ],
+      full_latex_section: `\\section{Comparative Analysis}\n${cleanJson}`,
+      bibtex_entries: [],
+      model_used: `Standalone client (${provider})`,
+      lens_applied: req.synthesis_lens
+    };
+  }
+}
+
+// ============================================================================
+// STANDALONE BIBTEX / CSL IMPORT & CROSSREF DOI VERIFICATION
+// ============================================================================
+
+const BIB_STORAGE_PREFIX = 'researchloom_references_';
+
+export function importStandaloneReferences(
+  format: 'bibtex' | 'csl-json',
+  content: string,
+  collectionName: string = 'Imported Collection'
+): ReferenceImportResponse {
+  const existingRaw = localStorage.getItem(BIB_STORAGE_PREFIX);
+  const existing: BibliographicReferenceItem[] = existingRaw ? JSON.parse(existingRaw) : [];
+
+  const parsedItems: BibliographicReferenceItem[] = [];
+
+  if (format === 'bibtex') {
+    // Lightweight client-side BibTeX regex parser
+    const entryRegex = /@(\w+)\s*\{\s*([^,]+),([^@]*)/g;
+    let match: RegExpExecArray | null;
+    while ((match = entryRegex.exec(content)) !== null) {
+      const entryType = match[1].toLowerCase();
+      const citationKey = match[2].trim();
+      const body = match[3];
+
+      const getField = (field: string): string => {
+        const fMatch = body.match(new RegExp(`${field}\\s*=\\s*[{"]([^}"]+)[}"]`, 'i'));
+        return fMatch ? fMatch[1].trim() : '';
+      };
+
+      const title = getField('title') || 'Untitled Reference';
+      const yearStr = getField('year');
+      const year = yearStr ? parseInt(yearStr, 10) : undefined;
+      const authorsStr = getField('author');
+      const authors = authorsStr ? authorsStr.split(/\s+and\s+/i).map(a => a.trim()) : ['Unknown Author'];
+      const doi = getField('doi') || undefined;
+      const venue = getField('journal') || getField('booktitle') || undefined;
+
+      const firstAuthor = authors[0] ? authors[0].split(',')[0].trim() : 'Unknown';
+      const citeAuthorYear = `${firstAuthor} et al., ${year || 'n.d.'}`;
+
+      parsedItems.push({
+        id: `bib_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        citation_key: citationKey,
+        cite_author_year: citeAuthorYear,
+        entry_type: entryType,
+        title,
+        authors,
+        year,
+        venue,
+        doi,
+        doi_verified: false,
+        bibtex_raw: `@${entryType}{${citationKey},\n${body.trim()}}`,
+        collection_name: collectionName,
+        source: 'bibtex_import',
+        is_vaulted: true,
+        created_at: new Date().toISOString()
+      });
+    }
+  } else {
+    // CSL-JSON
+    try {
+      const jsonList = JSON.parse(content);
+      const items = Array.isArray(jsonList) ? jsonList : [jsonList];
+      items.forEach((csl: any) => {
+        const authors = (csl.author || []).map((a: any) => `${a.family || ''} ${a.given || ''}`.trim()).filter(Boolean);
+        const year = csl.issued?.['date-parts']?.[0]?.[0] || undefined;
+        const firstAuthor = authors[0]?.split(' ')[0] || 'Unknown';
+        parsedItems.push({
+          id: `csl_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          citation_key: csl.id || `${firstAuthor}${year || 2024}`,
+          cite_author_year: `${firstAuthor} et al., ${year || 'n.d.'}`,
+          entry_type: csl.type || 'article',
+          title: csl.title || 'Untitled Reference',
+          authors: authors.length ? authors : ['Unknown Author'],
+          year,
+          venue: csl['container-title'] || undefined,
+          doi: csl.DOI || undefined,
+          doi_verified: false,
+          collection_name: collectionName,
+          source: 'csl_import',
+          is_vaulted: true,
+          created_at: new Date().toISOString()
+        });
+      });
+    } catch {}
+  }
+
+  // Deduplicate and append to existing
+  let importedCount = 0;
+  let duplicatesMerged = 0;
+  parsedItems.forEach(item => {
+    const dupIdx = existing.findIndex(e => (item.doi && e.doi === item.doi) || e.citation_key === item.citation_key);
+    if (dupIdx >= 0) {
+      existing[dupIdx] = { ...existing[dupIdx], ...item };
+      duplicatesMerged++;
+    } else {
+      existing.push(item);
+      importedCount++;
+    }
+  });
+
+  localStorage.setItem(BIB_STORAGE_PREFIX, JSON.stringify(existing));
+
+  return {
+    total_parsed: parsedItems.length,
+    imported_count: importedCount,
+    duplicates_merged: duplicatesMerged,
+    references: parsedItems,
+    warnings: []
+  };
+}
+
+export function getStandaloneReferences(collectionName?: string): BibliographicReferenceItem[] {
+  const existingRaw = localStorage.getItem(BIB_STORAGE_PREFIX);
+  const existing: BibliographicReferenceItem[] = existingRaw ? JSON.parse(existingRaw) : [];
+  if (collectionName) {
+    return existing.filter(r => r.collection_name === collectionName);
+  }
+  return existing;
+}
+
+export async function verifyStandaloneDOI(doi: string): Promise<VerifyDOIResponse> {
+  const clean = doi.replace(/^https?:\/\/doi\.org\//i, '').trim();
+  try {
+    const resp = await fetch(`https://api.crossref.org/works/${encodeURIComponent(clean)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      const message = data.message || {};
+      return {
+        doi: clean,
+        verified: true,
+        title: message.title?.[0],
+        venue: message['container-title']?.[0],
+        year: message.issued?.['date-parts']?.[0]?.[0] || undefined,
+        citation_count: message['is-referenced-by-count'] || 0
+      };
+    }
+  } catch {}
+  return {
+    doi: clean,
+    verified: false,
+    error: 'Could not verify DOI against Crossref.'
   };
 }

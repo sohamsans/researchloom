@@ -30,10 +30,46 @@ import {
   VerifyDOIResponse
 } from '../types';
 import { FALLBACK_PROVIDERS_INFO } from './providersFallback';
-import { executeStandaloneDiscover, executeStandalonePipeline } from './standaloneClient';
+import {
+  executeStandaloneDiscover,
+  executeStandalonePipeline,
+  executeStandaloneSnowballing,
+  saveStandaloneScreeningDecision,
+  getStandalonePRISMAStats,
+  executeStandaloneMatrixSynthesis,
+  importStandaloneReferences,
+  getStandaloneReferences,
+  verifyStandaloneDOI
+} from './standaloneClient';
 import { Capacitor } from '@capacitor/core';
 
+export function getApiBase(): string {
+  const custom = localStorage.getItem('researchloom_desktop_server_url');
+  if (custom && custom.trim()) {
+    const trimmed = custom.trim().replace(/\/+$/, '');
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+  }
+  return '/api';
+}
+
 const API_BASE = '/api';
+
+/**
+ * Safely parse JSON from a response, guarding against HTML SPA fallbacks
+ * (e.g. Capacitor localhost or nginx serving index.html on missing API endpoints).
+ */
+export async function safeFetchJson<T>(resp: Response, fallbackError: string): Promise<T> {
+  const text = await resp.text();
+  const trimmed = text.trim();
+  if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.startsWith('<?xml')) {
+    throw new Error(`Endpoint returned HTML response instead of JSON: ${fallbackError}`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Invalid JSON received: ${fallbackError}`);
+  }
+}
 
 function getAuthHeader(token?: string | null): Record<string, string> {
   const t = token || localStorage.getItem('autolit_auth_token');
@@ -747,24 +783,45 @@ export async function updateMatrixCellManually(
 // ----------------- PRISMA 2020 Screening API -----------------
 
 export async function logScreeningDecision(req: ScreeningDecisionRequest): Promise<ScreeningAuditItem> {
-  const resp = await fetch(`${API_BASE}/screening/decision`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-    body: JSON.stringify(req)
-  });
-  if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData.detail || `HTTP ${resp.status}: Failed to log screening decision`);
+  // If running native or offline without configured remote desktop server, persist locally
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+  if (Capacitor.isNativePlatform() && !customServer) {
+    return saveStandaloneScreeningDecision(req);
   }
-  return resp.json();
+
+  try {
+    const resp = await fetch(`${getApiBase()}/screening/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(req)
+    });
+    if (!resp.ok) {
+      return saveStandaloneScreeningDecision(req);
+    }
+    return await safeFetchJson<ScreeningAuditItem>(resp, 'Recording screening decision');
+  } catch (err) {
+    // Graceful fallback to standalone client persistence
+    return saveStandaloneScreeningDecision(req);
+  }
 }
 
 export async function fetchPRISMAFlowStats(workspaceId: string = 'default_workspace'): Promise<PRISMAStatsResponse> {
-  const resp = await fetch(`${API_BASE}/screening/prisma-flow/${workspaceId}`, {
-    headers: { ...getAuthHeader() }
-  });
-  if (!resp.ok) throw new Error('Failed to fetch PRISMA flow statistics');
-  return resp.json();
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+  if (Capacitor.isNativePlatform() && !customServer) {
+    return getStandalonePRISMAStats(workspaceId);
+  }
+
+  try {
+    const resp = await fetch(`${getApiBase()}/screening/prisma-flow/${workspaceId}`, {
+      headers: { ...getAuthHeader() }
+    });
+    if (!resp.ok) {
+      return getStandalonePRISMAStats(workspaceId);
+    }
+    return await safeFetchJson<PRISMAStatsResponse>(resp, 'Fetching PRISMA statistics');
+  } catch (err) {
+    return getStandalonePRISMAStats(workspaceId);
+  }
 }
 
 export async function generateAIFlowMap(topic: string, papers?: any[]): Promise<{
@@ -773,7 +830,7 @@ export async function generateAIFlowMap(topic: string, papers?: any[]): Promise<
   edges: any[];
 }> {
   const byok = getClientBYOKKeys();
-  const res = await fetch(`${API_BASE}/flow/generate-ai-map`, {
+  const res = await fetch(`${getApiBase()}/flow/generate-ai-map`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
     body: JSON.stringify({
@@ -796,23 +853,42 @@ export async function generateAIFlowMap(topic: string, papers?: any[]): Promise<
 export async function fetchSnowballing(
   paperId: string,
   direction: 'backward' | 'forward',
-  maxResults: number = 25
+  maxResults: number = 25,
+  title?: string
 ): Promise<SnowballResponse> {
-  const encId = encodeURIComponent(paperId);
-  const resp = await fetch(`${API_BASE}/snowball/${direction}/${encId}?max_results=${maxResults}`, {
-    headers: { ...getAuthHeader() }
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to fetch ${direction} snowball citations`);
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+  if (Capacitor.isNativePlatform() && !customServer) {
+    return executeStandaloneSnowballing(paperId, direction, maxResults, title);
   }
-  return resp.json();
+
+  const encId = encodeURIComponent(paperId);
+  const titleQuery = title ? `&title=${encodeURIComponent(title)}` : '';
+  try {
+    const resp = await fetch(`${getApiBase()}/snowball/${direction}/${encId}?max_results=${maxResults}${titleQuery}`, {
+      headers: { ...getAuthHeader() }
+    });
+    if (!resp.ok) {
+      // If server returned 404 or 500, fallback to direct OpenAlex client
+      return await executeStandaloneSnowballing(paperId, direction, maxResults, title);
+    }
+    return await safeFetchJson<SnowballResponse>(resp, `Fetching ${direction} snowball citations`);
+  } catch (err) {
+    // Network or server unreachable, fallback to client-side OpenAlex
+    return await executeStandaloneSnowballing(paperId, direction, maxResults, title);
+  }
 }
 
 export async function synthesizeMatrixSection(
   req: SynthesisDrafterRequest
 ): Promise<SynthesisDrafterResponse> {
   const byok = getClientBYOKKeys();
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+
+  if (Capacitor.isNativePlatform() && !customServer) {
+    const provider = req.model_provider || 'groq';
+    return executeStandaloneMatrixSynthesis(req, byok, provider as any);
+  }
+
   const payload: SynthesisDrafterRequest = {
     ...req,
     groq_api_key: req.groq_api_key || byok.groq,
@@ -821,16 +897,21 @@ export async function synthesizeMatrixSection(
     openai_api_key: req.openai_api_key || (byok as any).openai,
     openrouter_api_key: req.openrouter_api_key || byok.openrouter
   };
-  const resp = await fetch(`${API_BASE}/matrix/synthesize-section`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-    body: JSON.stringify(payload)
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail || 'Failed to synthesize comparative section');
+  try {
+    const resp = await fetch(`${getApiBase()}/matrix/synthesize-section`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      const provider = req.model_provider || 'groq';
+      return executeStandaloneMatrixSynthesis(req, byok, provider as any);
+    }
+    return await safeFetchJson<SynthesisDrafterResponse>(resp, 'Synthesizing matrix section');
+  } catch (err) {
+    const provider = req.model_provider || 'groq';
+    return executeStandaloneMatrixSynthesis(req, byok, provider as any);
   }
-  return resp.json();
 }
 
 export async function importReferences(
@@ -838,40 +919,70 @@ export async function importReferences(
   content: string,
   collectionName: string = 'Imported Collection'
 ): Promise<ReferenceImportResponse> {
-  const resp = await fetch(`${API_BASE}/references/import`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-    body: JSON.stringify({ format, content, collection_name: collectionName })
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail || 'Failed to import references');
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+  if (Capacitor.isNativePlatform() && !customServer) {
+    return importStandaloneReferences(format, content, collectionName);
   }
-  return resp.json();
+
+  try {
+    const resp = await fetch(`${getApiBase()}/references/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ format, content, collection_name: collectionName })
+    });
+    if (!resp.ok) {
+      return importStandaloneReferences(format, content, collectionName);
+    }
+    return await safeFetchJson<ReferenceImportResponse>(resp, 'Importing references');
+  } catch (err) {
+    return importStandaloneReferences(format, content, collectionName);
+  }
 }
 
 export async function verifyReferenceDOI(doi: string): Promise<VerifyDOIResponse> {
-  const resp = await fetch(`${API_BASE}/references/verify-doi`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-    body: JSON.stringify({ doi })
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail || 'Failed to verify DOI');
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+  if (Capacitor.isNativePlatform() && !customServer) {
+    return verifyStandaloneDOI(doi);
   }
-  return resp.json();
+
+  try {
+    const resp = await fetch(`${getApiBase()}/references/verify-doi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ doi })
+    });
+    if (!resp.ok) {
+      return verifyStandaloneDOI(doi);
+    }
+    return await safeFetchJson<VerifyDOIResponse>(resp, 'Verifying DOI');
+  } catch (err) {
+    return verifyStandaloneDOI(doi);
+  }
 }
 
 export async function fetchCollectionReferences(
   collectionName: string = 'Default Library'
 ): Promise<{ collection: string; total: number; items: BibliographicReferenceItem[] }> {
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+  if (Capacitor.isNativePlatform() && !customServer) {
+    const items = getStandaloneReferences(collectionName);
+    return { collection: collectionName, total: items.length, items };
+  }
+
   const enc = encodeURIComponent(collectionName);
-  const resp = await fetch(`${API_BASE}/references/collection/${enc}`, {
-    headers: { ...getAuthHeader() }
-  });
-  if (!resp.ok) throw new Error('Failed to fetch collection references');
-  return resp.json();
+  try {
+    const resp = await fetch(`${getApiBase()}/references/collection/${enc}`, {
+      headers: { ...getAuthHeader() }
+    });
+    if (!resp.ok) {
+      const items = getStandaloneReferences(collectionName);
+      return { collection: collectionName, total: items.length, items };
+    }
+    return await safeFetchJson(resp, 'Fetching collection references');
+  } catch (err) {
+    const items = getStandaloneReferences(collectionName);
+    return { collection: collectionName, total: items.length, items };
+  }
 }
 
 export const api = {

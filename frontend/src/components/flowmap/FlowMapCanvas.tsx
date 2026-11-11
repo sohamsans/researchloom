@@ -771,7 +771,9 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
   const [snowballLoading, setSnowballLoading] = useState<string | null>(null);
 
   const handleSnowballLineage = async (node: FlowNode, direction: 'backward' | 'forward' | 'both' = 'both') => {
+    // If node has DOI, prioritize it; otherwise if id is synthetic, pass title as seed lookup
     const seedId = node.doi || node.id;
+    const lookupTitle = node.title && !node.title.toLowerCase().startsWith('untitled') ? node.title : undefined;
     setSnowballLoading(node.id);
     showToast(`Tracing citation lineage for "${node.title.slice(0, 30)}..."`, 'info');
 
@@ -781,7 +783,7 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
       const addedEdges: FlowEdge[] = [];
 
       for (const dir of toFetch) {
-        const data = await api.fetchSnowballing(seedId, dir, 10);
+        const data = await api.fetchSnowballing(seedId, dir, 10, lookupTitle);
         if (data.papers && data.papers.length > 0) {
           const isBack = dir === 'backward';
           const folderId = `snowball_${dir}_${node.id}`;

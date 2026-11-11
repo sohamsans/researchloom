@@ -46,3 +46,13 @@ def test_parse_work_to_item():
     assert item.year == 2017
     assert item.relation == "predecessor"
     assert item.is_oa is True
+
+@pytest.mark.asyncio
+async def test_resolve_seed_arxiv_underscores():
+    import httpx
+    from app.services.snowball_service import resolve_seed_work
+    async with httpx.AsyncClient() as client:
+        # Should cleanly attempt lookup without throwing regex or syntax errors
+        res = await resolve_seed_work(client, "arxiv_1706_03762", title="Attention Is All You Need")
+        assert res is not None
+        assert "Attention" in (res.get("title") or "")

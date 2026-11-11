@@ -44,7 +44,7 @@ def extract_authors(work: Dict[str, Any]) -> List[str]:
     return authors
 
 @rate_limit_shield(max_retries=3, base_delay=1.5)
-async def resolve_seed_work(client: httpx.AsyncClient, identifier: str) -> Optional[Dict[str, Any]]:
+async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Resolve an incoming identifier (OpenAlex ID, DOI, arXiv ID, or PMID) into a canonical OpenAlex Work object."""
     clean_id = identifier.strip()
 
@@ -55,8 +55,11 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str) -> Optio
         if resp.status_code == 200:
             return resp.json()
 
-    # 2. arXiv ID (e.g. 2303.08774, arxiv:2303.08774)
-    arxiv_match = re.match(r"^(?:arxiv:)?(\d{4}\.\d{4,5}(?:v\d+)?)$", clean_id, re.IGNORECASE)
+    # 2. arXiv ID (supports 2303.08774, arxiv:2303.08774, arxiv_2303_08774)
+    norm_arxiv = re.sub(r"^arxiv[_\:]", "", clean_id, flags=re.IGNORECASE).strip()
+    if "_" in norm_arxiv and re.match(r"^\d{4}_\d{4,5}(?:v\d+)?$", norm_arxiv):
+        norm_arxiv = norm_arxiv.replace("_", ".")
+    arxiv_match = re.match(r"^(\d{4}\.\d{4,5}(?:v\d+)?)$", norm_arxiv, re.IGNORECASE)
     if arxiv_match:
         arxiv_id = arxiv_match.group(1)
         url = f"{OPENALEX_BASE_URL}/works/https://arxiv.org/abs/{arxiv_id}?mailto={POLITE_EMAIL}"
@@ -86,13 +89,24 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str) -> Optio
         if resp.status_code == 200:
             return resp.json()
 
-    # 5. Search fallback by title if identifier resembles text
-    url = f"{OPENALEX_BASE_URL}/works?filter=default.search:{clean_id}&per-page=1&mailto={POLITE_EMAIL}"
-    resp = await client.get(url, headers=HEADERS, timeout=12.0)
-    if resp.status_code == 200:
-        results = resp.json().get("results", [])
-        if results:
-            return results[0]
+    # 5. Search fallback by clean_id if it resembles text (and not synthetic IDs like synth_0)
+    if not clean_id.startswith("synth_") and len(clean_id) > 3:
+        url = f"{OPENALEX_BASE_URL}/works?filter=default.search:{clean_id}&per-page=1&mailto={POLITE_EMAIL}"
+        resp = await client.get(url, headers=HEADERS, timeout=12.0)
+        if resp.status_code == 200:
+            results = resp.json().get("results", [])
+            if results:
+                return results[0]
+
+    # 6. Fallback search by title if passed
+    if title and len(title.strip()) > 3:
+        clean_title = re.sub(r"[^\w\s]", " ", title).strip()
+        url = f"{OPENALEX_BASE_URL}/works?search={clean_title}&per-page=1&mailto={POLITE_EMAIL}"
+        resp = await client.get(url, headers=HEADERS, timeout=12.0)
+        if resp.status_code == 200:
+            results = resp.json().get("results", [])
+            if results:
+                return results[0]
 
     return None
 
@@ -129,14 +143,15 @@ def parse_work_to_item(work: Dict[str, Any], relation: str) -> SnowballPaperItem
 async def perform_citation_snowballing(
     seed_identifier: str,
     direction: str, # "backward" or "forward"
-    max_results: int = 25
+    max_results: int = 25,
+    title: Optional[str] = None
 ) -> SnowballResponse:
     """Execute forward or backward citation snowballing using OpenAlex polite pool with local database fallback."""
     warnings: List[str] = []
     
     async with httpx.AsyncClient() as client:
         try:
-            seed_work = await resolve_seed_work(client, seed_identifier)
+            seed_work = await resolve_seed_work(client, seed_identifier, title=title)
         except Exception as e:
             logger.warning(f"[Snowball] Failed to resolve seed online: {e}")
             seed_work = None
@@ -144,7 +159,7 @@ async def perform_citation_snowballing(
 
         if not seed_work:
             # Check local SQLite cache
-            cached_seed = await find_local_cached_seed(seed_identifier)
+            cached_seed = await find_local_cached_seed(seed_identifier, title=title)
             if cached_seed:
                 return SnowballResponse(
                     seed=cached_seed,
@@ -219,55 +234,71 @@ async def perform_citation_snowballing(
                 warnings=warnings
             )
 
-async def find_local_cached_seed(identifier: str) -> Optional[SnowballSeedMetadata]:
-    """Look up paper in local SQLite cache by DOI or title."""
+async def find_local_cached_seed(identifier: str, title: Optional[str] = None) -> Optional[SnowballSeedMetadata]:
+    """Look up paper in local SQLite cache by DOI or title with defensive exception protection."""
     clean_id = identifier.replace("https://doi.org/", "").strip()
-    async with AsyncSessionLocal() as session:
-        # Check PaperCache
-        stmt = select(PaperCache).where((PaperCache.doi == clean_id) | (PaperCache.title.ilike(f"%{clean_id}%")))
-        res = await session.execute(stmt)
-        p = res.scalar_one_or_none()
-        if p:
-            authors = []
-            try:
-                import json
-                authors = json.loads(p.authors_json) if p.authors_json else []
-            except Exception:
-                authors = [p.authors_json] if p.authors_json else []
-            return SnowballSeedMetadata(
-                openalex_id=p.cache_key,
-                doi=p.doi,
-                title=p.title,
-                year=p.year,
-                authors=authors,
-                cited_by_count=0,
-                referenced_works_count=0,
-                venue=p.venue,
-                is_oa=p.is_oa,
-                oa_url=p.pdf_url
-            )
+    try:
+        async with AsyncSessionLocal() as session:
+            # Check PaperCache
+            conditions = [PaperCache.doi == clean_id]
+            if not clean_id.startswith("synth_"):
+                conditions.append(PaperCache.title.ilike(f"%{clean_id}%"))
+            if title:
+                conditions.append(PaperCache.title.ilike(f"%{title.strip()}%"))
 
-        # Check BibliographicReference
-        b_stmt = select(BibliographicReference).where((BibliographicReference.doi == clean_id) | (BibliographicReference.citation_key == clean_id))
-        b_res = await session.execute(b_stmt)
-        b = b_res.scalar_one_or_none()
-        if b:
-            authors = []
+            from sqlalchemy import or_
+            stmt = select(PaperCache).where(or_(*conditions))
+            res = await session.execute(stmt)
+            p = res.scalar_one_or_none()
+            if p:
+                authors = []
+                try:
+                    import json
+                    authors = json.loads(p.authors_json) if p.authors_json else []
+                except Exception:
+                    authors = [p.authors_json] if p.authors_json else []
+                return SnowballSeedMetadata(
+                    openalex_id=p.cache_key,
+                    doi=p.doi,
+                    title=p.title,
+                    year=p.year,
+                    authors=authors,
+                    cited_by_count=0,
+                    referenced_works_count=0,
+                    venue=p.venue,
+                    is_oa=p.is_oa,
+                    oa_url=p.pdf_url
+                )
+
+            # Check BibliographicReference defensively
             try:
-                import json
-                authors = json.loads(b.authors_json) if b.authors_json else []
-            except Exception:
-                authors = [b.authors_json] if b.authors_json else []
-            return SnowballSeedMetadata(
-                openalex_id=b.citation_key,
-                doi=b.doi,
-                title=b.title,
-                year=b.year,
-                authors=authors,
-                cited_by_count=0,
-                referenced_works_count=0,
-                venue=b.venue,
-                is_oa=False,
-                oa_url=b.url
-            )
+                b_conditions = [BibliographicReference.doi == clean_id, BibliographicReference.citation_key == clean_id]
+                if title:
+                    b_conditions.append(BibliographicReference.title.ilike(f"%{title.strip()}%"))
+                b_stmt = select(BibliographicReference).where(or_(*b_conditions))
+                b_res = await session.execute(b_stmt)
+                b = b_res.scalar_one_or_none()
+                if b:
+                    authors = []
+                    try:
+                        import json
+                        authors = json.loads(b.authors_json) if b.authors_json else []
+                    except Exception:
+                        authors = [b.authors_json] if b.authors_json else []
+                    return SnowballSeedMetadata(
+                        openalex_id=b.citation_key,
+                        doi=b.doi,
+                        title=b.title,
+                        year=b.year,
+                        authors=authors,
+                        cited_by_count=0,
+                        referenced_works_count=0,
+                        venue=b.venue,
+                        is_oa=False,
+                        oa_url=b.url
+                    )
+            except Exception as b_err:
+                logger.warning(f"[Snowball] BibliographicReference lookup skipped or failed: {b_err}")
+    except Exception as e:
+        logger.warning(f"[Snowball] Local cache lookup failed: {e}")
     return None
