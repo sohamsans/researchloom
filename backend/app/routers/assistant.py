@@ -25,6 +25,7 @@ async def run_council_deliberation(request: CouncilDeliberationRequest):
             topic=request.topic,
             paper_title=request.paper_title,
             text_slice=request.text_slice,
+            query=request.query,
             active_members=request.active_members
         )
     except Exception as e:

@@ -35,6 +35,11 @@ interface EvidenceMatrixStudioProps {
   onInsertComparativeSection?: (section: { title: string; latex: string; bibtex: string[] }) => void;
 }
 
+export function validateMatrixSelection(size: number): boolean {
+  if (size < 2 || size > 15) return false;
+  return true;
+}
+
 export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
   papers = [],
   candidatePapers = [],
@@ -351,6 +356,10 @@ export const EvidenceMatrixStudio: React.FC<EvidenceMatrixStudioProps> = ({
   const handleSynthesizeSelectedSection = async () => {
     if (selectedPaperIds.size < 2) {
       showToast('Please select at least 2 papers to synthesize a comparative section.', 'warning');
+      return;
+    }
+    if (selectedPaperIds.size > 15) {
+      showToast('Maximum 15 papers can be synthesized simultaneously to preserve LLM context budget.', 'warning');
       return;
     }
 

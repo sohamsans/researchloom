@@ -23,11 +23,25 @@ def _get_database_url() -> str:
 
 DATABASE_URL = _get_database_url()
 
+from sqlalchemy import event
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 )
+
+if "sqlite" in DATABASE_URL and ":memory:" not in DATABASE_URL:
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA busy_timeout=10000;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
+            cursor.close()
+        except Exception:
+            pass
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,

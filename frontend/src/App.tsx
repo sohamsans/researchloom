@@ -28,6 +28,7 @@ import { SpotlightModal } from './components/SpotlightModal';
 import { UpdateModal } from './components/UpdateModal';
 import { P2PSyncModal } from './components/P2PSyncModal';
 import { McpControlModal } from './components/McpControlModal';
+import { WebClipperModal } from './components/WebClipperModal';
 
 // Code-split heavy workspace suites for instant startup and low memory footprint
 const MasterReferenceManager = React.lazy(() => import('./components/MasterReferenceManager').then(m => ({ default: m.MasterReferenceManager })));
@@ -95,6 +96,7 @@ const MainLayout: React.FC = () => {
   const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false);
   const [isP2PSyncOpen, setIsP2PSyncOpen] = useState(false);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
+  const [isClipperModalOpen, setIsClipperModalOpen] = useState(false);
 
   // PDF Viewer Modal
   const [viewerVaultId, setViewerVaultId] = useState<string | null>(null);
@@ -140,6 +142,7 @@ const MainLayout: React.FC = () => {
     doi?: string;
   } | null>(null);
   const [pendingFormulaSnippet, setPendingFormulaSnippet] = useState<string | null>(null);
+  const [pendingStylusNote, setPendingStylusNote] = useState<string | null>(null);
   const [pendingComparativeSection, setPendingComparativeSection] = useState<{ title: string; latex: string; bibtex: string[] } | null>(null);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
@@ -691,6 +694,7 @@ const MainLayout: React.FC = () => {
           onOpenRollback={() => setIsRollbackOpen(true)}
           onOpenP2PSync={() => setIsP2PSyncOpen(true)}
           onOpenMcp={() => setIsMcpOpen(true)}
+          onOpenClipper={() => setIsClipperModalOpen(true)}
           lastAutosave={lastAutosaveTime}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
@@ -740,9 +744,11 @@ const MainLayout: React.FC = () => {
               currentTopic={currentTopic}
               incomingCitation={pendingCitationPaper}
               incomingFormulaSnippet={pendingFormulaSnippet}
+              incomingStylusNote={pendingStylusNote}
               incomingSection={pendingComparativeSection}
               onClearIncomingCitation={() => setPendingCitationPaper(null)}
               onClearIncomingFormula={() => setPendingFormulaSnippet(null)}
+              onClearIncomingStylusNote={() => setPendingStylusNote(null)}
               onClearIncomingSection={() => setPendingComparativeSection(null)}
             />
           </div>
@@ -750,7 +756,7 @@ const MainLayout: React.FC = () => {
           <div className={mainTab === 'stylus' ? 'flex-1 flex flex-col min-h-0' : 'hidden'}>
             <StylusStudio
               onInsertToStudio={(note) => {
-                setPendingFormulaSnippet(note);
+                setPendingStylusNote(note);
                 setMainTab('studio');
               }}
               onInsertToFlowMap={(imgUrl) => {
@@ -1141,6 +1147,12 @@ const MainLayout: React.FC = () => {
       <McpControlModal
         isOpen={isMcpOpen}
         onClose={() => setIsMcpOpen(false)}
+      />
+
+      {/* In-App Web Clipper Paper Ingestion Modal */}
+      <WebClipperModal
+        isOpen={isClipperModalOpen}
+        onClose={() => setIsClipperModalOpen(false)}
       />
 
       {/* Software Auto-Updater Modal */}

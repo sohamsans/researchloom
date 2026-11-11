@@ -720,6 +720,15 @@ export const StylusStudio: React.FC<StylusStudioProps> = ({
           {/* Output Action buttons */}
           <button
             type="button"
+            onClick={transmitToStudio}
+            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-100 shadow-xs transition cursor-pointer"
+            title="Send Note to Writing Studio"
+          >
+            <FileText className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden lg:inline">To Studio</span>
+          </button>
+          <button
+            type="button"
             onClick={transmitToFlowMap}
             className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-100 shadow-xs transition cursor-pointer"
             title="Send to Flow Map"

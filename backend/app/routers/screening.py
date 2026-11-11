@@ -48,7 +48,7 @@ async def log_screening_decision(req: ScreeningDecisionRequest, db: AsyncSession
 @router.get("/prisma-flow/{workspace_id}", response_model=PRISMAStatsResponse)
 async def get_prisma_flow_stats(workspace_id: str = "default_workspace", db: AsyncSession = Depends(get_db)):
     """Compute mathematical PRISMA 2020 stage metrics directly from the immutable audit log."""
-    stmt = select(ScreeningAuditLog).where(ScreeningAuditLog.workspace_id == workspace_id).order_by(desc(ScreeningAuditLog.created_at))
+    stmt = select(ScreeningAuditLog).where(ScreeningAuditLog.workspace_id == workspace_id).order_by(desc(ScreeningAuditLog.created_at), desc(ScreeningAuditLog.id))
     res = await db.execute(stmt)
     records = res.scalars().all()
 
@@ -62,6 +62,8 @@ async def get_prisma_flow_stats(workspace_id: str = "default_workspace", db: Asy
 
     seen_papers = set()
     for r in records:
+        if r.paper_id in seen_papers:
+            continue
         seen_papers.add(r.paper_id)
         if r.action == "excluded":
             reason = r.exclusion_reason or "Unspecified Reason"

@@ -70,3 +70,9 @@ progress.md
 netlify_deploy/
 dist_setup/
 dist_apk/
+
+TEST_PLAN.md
+FIX_PLAN.md
+*.db-shm
+*.db-wal
+

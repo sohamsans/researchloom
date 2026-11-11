@@ -19,6 +19,24 @@ export interface DataRow {
   [key: string]: any;
 }
 
+// Helper to escape LaTeX special characters in table headers and data cells
+export const escapeLatex = (val: any): string => {
+  if (val === null || val === undefined) return '-';
+  const str = String(val);
+  if (!str.trim()) return '-';
+  return str
+    .replace(/\\/g, '\\textbackslash{}')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_')
+    .replace(/&/g, '\\&')
+    .replace(/#/g, '\\#')
+    .replace(/\$/g, '\\$')
+    .replace(/\^/g, '\\textasciicircum{}')
+    .replace(/~/g, '\\textasciitilde{}');
+};
+
 export const DataSheetStudio: React.FC = () => {
   const { showAlert, showConfirm, showToast } = useNativeDialog();
   const [columns, setColumns] = useState<string[]>(['Model / Method', 'Dataset', 'Accuracy (%)', 'Latency (ms)', 'F1 Score']);
@@ -121,9 +139,9 @@ export const DataSheetStudio: React.FC = () => {
 
   // Generate publication-ready LaTeX Booktabs Table
   const generateLatexTable = () => {
-    const colAlign = 'l ' + 'c '.repeat(columns.length - 1);
-    const headerRow = columns.map(c => `\\textbf{${c}}`).join(' & ');
-    const bodyRows = rows.map(r => columns.map(c => r[c] || '-').join(' & ')).join(' \\\\\n');
+    const colAlign = 'l ' + 'c '.repeat(Math.max(0, columns.length - 1));
+    const headerRow = columns.map(c => `\\textbf{${escapeLatex(c)}}`).join(' & ');
+    const bodyRows = rows.map(r => columns.map(c => escapeLatex(r[c])).join(' & ')).join(' \\\\\n');
 
     return `\\begin{table}[ht]
 \\centering

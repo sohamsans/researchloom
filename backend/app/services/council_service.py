@@ -39,6 +39,7 @@ class MultiLLMCouncilService:
         topic: str,
         paper_title: str = "General Research Formulation",
         text_slice: str = "",
+        query: Optional[str] = None,
         active_members: Optional[List[str]] = None
     ) -> CouncilConsensusResult:
         base_client = UniversalLLMClient()
@@ -69,7 +70,8 @@ class MultiLLMCouncilService:
                     role=spec["role"],
                     topic=topic,
                     paper_title=paper_title,
-                    text_slice=text_slice
+                    text_slice=text_slice,
+                    query=query
                 )
             )
 
@@ -92,7 +94,8 @@ class MultiLLMCouncilService:
         role: str,
         topic: str,
         paper_title: str,
-        text_slice: str
+        text_slice: str,
+        query: Optional[str] = None
     ) -> CouncilEvaluation:
         client = UniversalLLMClient(provider=provider, model_name=model)
         system_prompt = (
@@ -107,7 +110,12 @@ class MultiLLMCouncilService:
             '  "potential_hallucinations": ["<claim with questionable backing>"]\n'
             "}"
         )
-        user_prompt = f"Topic: {topic}\nPaper: {paper_title}\nExcerpt: {text_slice[:4000]}"
+        user_prompt = (
+            f"Topic: {topic}\n"
+            f"Query: {query or 'Conduct comprehensive cross-examination of paper methodologies'}\n"
+            f"Paper: {paper_title}\n"
+            f"Excerpt: {text_slice[:4000]}"
+        )
 
         try:
             raw = await client.generate_response(system_prompt, user_prompt, max_tokens=600, response_json=True)

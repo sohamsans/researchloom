@@ -444,16 +444,16 @@ async def fetch_arxiv_papers(
 ) -> List[RawPaperMetadata]:
     """Fetch preprints from arXiv API."""
     encoded_topic = urllib.parse.quote(topic)
-    url = f"http://export.arxiv.org/api/query?search_query=all:{encoded_topic}&start={offset}&max_results={max_results}&sortBy=relevance&sortOrder=descending"
+    url = f"https://export.arxiv.org/api/query?search_query=all:{encoded_topic}&start={offset}&max_results={max_results}&sortBy=relevance&sortOrder=descending"
     
     papers: List[RawPaperMetadata] = []
     should_close = False
     if client is None:
-        client = httpx.AsyncClient(timeout=12.0)
+        client = httpx.AsyncClient(timeout=12.0, follow_redirects=True)
         should_close = True
 
     try:
-        response = await client.get(url)
+        response = await client.get(url, follow_redirects=True)
         if response.status_code == 200:
             root = ET.fromstring(response.text)
             ns = {
@@ -517,28 +517,43 @@ async def fetch_arxiv_papers(
     return papers[:max_results]
 
 def deduplicate_papers(papers: List[RawPaperMetadata]) -> List[RawPaperMetadata]:
-    """Deduplicate papers across all sources by normalized DOI and title."""
-    seen_dois = set()
-    seen_titles = set()
-    unique: List[RawPaperMetadata] = []
+    """Deduplicate papers across all sources by normalized DOI and title, merging richer metadata."""
+    title_map: Dict[str, RawPaperMetadata] = {}
+    doi_map: Dict[str, str] = {}  # doi -> title_key
 
     for p in papers:
         doi_clean = (p.doi or "").lower().strip()
         title_key = normalize_title(p.title)
 
-        if doi_clean and doi_clean in seen_dois:
-            continue
-        if title_key and title_key in seen_titles:
+        if not title_key:
             continue
 
-        if doi_clean:
-            seen_dois.add(doi_clean)
-        if title_key:
-            seen_titles.add(title_key)
+        existing_key = doi_map.get(doi_clean) if doi_clean else None
+        target_key = existing_key or (title_key if title_key in title_map else None)
 
-        unique.append(p)
+        if target_key:
+            existing = title_map[target_key]
+            # Monotonically coalesce metadata so DOIs and PDFs are NEVER lost
+            if not existing.doi and p.doi:
+                existing.doi = p.doi
+                doi_map[p.doi.lower().strip()] = target_key
+            if not existing.pdf_url and p.pdf_url:
+                existing.pdf_url = p.pdf_url
+                existing.is_oa = existing.is_oa or p.is_oa
+            if len(p.abstract or "") > len(existing.abstract or ""):
+                existing.abstract = p.abstract
+            if len(p.authors) > len(existing.authors):
+                existing.authors = p.authors
+            if not existing.venue and p.venue:
+                existing.venue = p.venue
+            if existing.year is None and p.year is not None:
+                existing.year = p.year
+        else:
+            title_map[title_key] = p
+            if doi_clean:
+                doi_map[doi_clean] = title_key
 
-    return unique
+    return list(title_map.values())
 
 async def discover_academic_papers(
     topic: str,

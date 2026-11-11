@@ -71,7 +71,7 @@ export async function safeFetchJson<T>(resp: Response, fallbackError: string): P
   }
 }
 
-function getAuthHeader(token?: string | null): Record<string, string> {
+export function getAuthHeader(token?: string | null): Record<string, string> {
   const t = token || localStorage.getItem('autolit_auth_token');
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
@@ -598,19 +598,76 @@ export async function getAllReferences(params?: {
   synthesized_count: number;
   items: any[];
 }> {
-  const searchParams = new URLSearchParams();
-  if (params?.search) searchParams.set('search', params.search);
-  if (params?.tag) searchParams.set('tag', params.tag);
-  if (params?.year_min) searchParams.set('year_min', params.year_min.toString());
-  if (params?.year_max) searchParams.set('year_max', params.year_max.toString());
-  if (params?.only_vaulted) searchParams.set('only_vaulted', 'true');
-  if (params?.only_synthesized) searchParams.set('only_synthesized', 'true');
+  const customServer = localStorage.getItem('researchloom_desktop_server_url');
+  const isOfflineNative = Capacitor.isNativePlatform() && !customServer;
 
-  const res = await fetch(`${API_BASE}/references/all?${searchParams.toString()}`);
-  if (!res.ok) {
-    return { total: 0, total_unfiltered: 0, vaulted_count: 0, synthesized_count: 0, items: [] };
+  if (!isOfflineNative) {
+    try {
+      const searchParams = new URLSearchParams();
+      if (params?.search) searchParams.set('search', params.search);
+      if (params?.tag) searchParams.set('tag', params.tag);
+      if (params?.year_min) searchParams.set('year_min', params.year_min.toString());
+      if (params?.year_max) searchParams.set('year_max', params.year_max.toString());
+      if (params?.only_vaulted) searchParams.set('only_vaulted', 'true');
+      if (params?.only_synthesized) searchParams.set('only_synthesized', 'true');
+
+      const res = await fetch(`${getApiBase()}/references/all?${searchParams.toString()}`, {
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        return await safeFetchJson(res, 'Fetching references');
+      }
+    } catch (err) {
+      console.warn('Network fetch for references failed, falling back to offline localStorage:', err);
+    }
   }
-  return res.json();
+
+  // Offline fallback to browser localStorage with client-side filtering
+  const allLocal = getStandaloneReferences();
+  let filtered = allLocal;
+
+  if (params?.search) {
+    const q = params.search.toLowerCase();
+    filtered = filtered.filter(i =>
+      (i.title && i.title.toLowerCase().includes(q)) ||
+      (i.citation_key && i.citation_key.toLowerCase().includes(q)) ||
+      (i.abstract && i.abstract.toLowerCase().includes(q))
+    );
+  }
+  if (params?.year_min) {
+    filtered = filtered.filter(i => i.year && i.year >= params.year_min!);
+  }
+  if (params?.year_max) {
+    filtered = filtered.filter(i => i.year && i.year <= params.year_max!);
+  }
+
+  return {
+    total: filtered.length,
+    total_unfiltered: allLocal.length,
+    vaulted_count: 0,
+    synthesized_count: 0,
+    items: filtered
+  };
+}
+
+export function gatherEodCommitPayload(): {
+  new_papers: any[];
+  notes: any[];
+  stylus_strokes: any[];
+} {
+  let new_papers: any[] = [];
+  try {
+    const stored = localStorage.getItem('researchloom_references_');
+    if (stored) new_papers = JSON.parse(stored);
+  } catch (e) {}
+
+  let notes: any[] = [];
+  try {
+    const stored = localStorage.getItem('researchloom_notes_') || localStorage.getItem('litbuddy_notes_');
+    if (stored) notes = JSON.parse(stored);
+  } catch (e) {}
+
+  return { new_papers, notes, stylus_strokes: [] };
 }
 
 export async function exportReferences(format: 'bibtex' | 'ris' = 'bibtex', paperIds?: string[]): Promise<void> {

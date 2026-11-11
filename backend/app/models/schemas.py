@@ -328,6 +328,7 @@ class MatrixCellExtractRequest(BaseModel):
     column_id: str
     column_name: str
     prompt: str
+    abstract: Optional[str] = None
     data_type: str = "string"
     model_provider: Optional[str] = "groq"
     model_name: Optional[str] = None

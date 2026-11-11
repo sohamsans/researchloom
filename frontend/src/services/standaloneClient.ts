@@ -645,13 +645,21 @@ export function getStandalonePRISMAStats(workspaceId: string = 'default_workspac
 // STANDALONE EVIDENCE MATRIX SYNTHESIS (Client BYOK LLM)
 // ============================================================================
 
+export function generateStandaloneCitationKey(rawAuthor: string, year: number | string = 2024): string {
+  const surname = rawAuthor.includes(',')
+    ? rawAuthor.split(',')[0].trim()
+    : rawAuthor.trim().split(/\s+/).pop() || 'Unknown';
+  const cleanSurname = surname.replace(/[^a-zA-Z]/g, '') || 'Unknown';
+  return `${cleanSurname}${year || 2024}`;
+}
+
 export async function executeStandaloneMatrixSynthesis(
   req: SynthesisDrafterRequest,
   keys: { groq?: string; gemini?: string; claude?: string; openai?: string; openrouter?: string },
   provider: 'groq' | 'gemini' | 'claude' | 'openai' | 'openrouter' = 'groq'
 ): Promise<SynthesisDrafterResponse> {
   const paperSummaries = req.papers.map((p, idx) => {
-    const citeKey = `${(p.authors[0] || 'Unknown').split(' ')[0]}${p.year || 2024}`;
+    const citeKey = generateStandaloneCitationKey((p.authors && p.authors[0]) || 'Unknown', p.year || 2024);
     return `[${citeKey}] "${p.title}" (${p.year || 'N/A'})\nAbstract: ${p.abstract?.slice(0, 500) || 'N/A'}\nKey cells: ${JSON.stringify(p.extracted_cells || {})}`;
   }).join('\n\n');
 

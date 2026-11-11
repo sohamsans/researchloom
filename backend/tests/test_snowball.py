@@ -51,7 +51,18 @@ def test_parse_work_to_item():
 async def test_resolve_seed_arxiv_underscores():
     import httpx
     from app.services.snowball_service import resolve_seed_work
-    async with httpx.AsyncClient() as client:
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "arxiv.org/abs/1706.03762" in str(request.url):
+            return httpx.Response(200, json={
+                "id": "https://openalex.org/W3035965352",
+                "title": "Attention Is All You Need",
+                "publication_year": 2017
+            })
+        return httpx.Response(404, json={"error": "Not found"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
         # Should cleanly attempt lookup without throwing regex or syntax errors
         res = await resolve_seed_work(client, "arxiv_1706_03762", title="Attention Is All You Need")
         assert res is not None

@@ -27,9 +27,11 @@ interface WritingStudioProps {
   currentTopic?: string;
   incomingCitation?: { id: string; title: string; authors?: string[]; year?: number; doi?: string } | null;
   incomingFormulaSnippet?: string | null;
+  incomingStylusNote?: string | null;
   incomingSection?: { title: string; latex: string; bibtex: string[] } | null;
   onClearIncomingCitation?: () => void;
   onClearIncomingFormula?: () => void;
+  onClearIncomingStylusNote?: () => void;
   onClearIncomingSection?: () => void;
 }
 
@@ -63,9 +65,11 @@ export const WritingStudio: React.FC<WritingStudioProps> = ({
   currentTopic = '',
   incomingCitation = null,
   incomingFormulaSnippet = null,
+  incomingStylusNote = null,
   incomingSection = null,
   onClearIncomingCitation,
   onClearIncomingFormula,
+  onClearIncomingStylusNote,
   onClearIncomingSection
 }) => {
   const { showConfirm, showToast } = useNativeDialog();
@@ -356,17 +360,47 @@ export const WritingStudio: React.FC<WritingStudioProps> = ({
     const targetDoc = activeManuscript || manuscripts[0];
     if (!targetDoc) return;
 
+    const isDisplayMath = /^\s*(\\begin\{(equation|align|gather|multline|flalign)\*?\}|\\\[|\$\$)/.test(incomingFormulaSnippet);
+
     if (targetDoc.mode === 'latex') {
-      const updatedSource = targetDoc.latex_source + `\n\n% Inserted from Formula Studio\n\\begin{equation}\n${incomingFormulaSnippet}\n\\end{equation}\n`;
+      const snippetToInsert = isDisplayMath
+        ? incomingFormulaSnippet
+        : `\\begin{equation}\n  ${incomingFormulaSnippet}\n\\end{equation}`;
+
+      const updatedSource = targetDoc.latex_source + `\n\n% Inserted from Formula Studio\n${snippetToInsert}\n`;
       handleLatexChange(updatedSource);
     } else {
-      const appended = targetDoc.content + `\n\n$$\n${incomingFormulaSnippet}\n$$\n`;
+      const isAlreadyWrappedInDollars = incomingFormulaSnippet.trim().startsWith('$$') || isDisplayMath;
+      const snippetToInsert = isAlreadyWrappedInDollars
+        ? incomingFormulaSnippet
+        : `$$\n${incomingFormulaSnippet}\n$$`;
+
+      const appended = targetDoc.content + `\n\n${snippetToInsert}\n`;
       handleContentChange(appended);
     }
 
     setToastBanner('Inserted mathematical formula into active manuscript!');
     onClearIncomingFormula?.();
   }, [incomingFormulaSnippet, activeManuscript, manuscripts, onClearIncomingFormula]);
+
+  // Handle incoming stylus handwritten note
+  useEffect(() => {
+    if (!incomingStylusNote) return;
+
+    const targetDoc = activeManuscript || manuscripts[0];
+    if (!targetDoc) return;
+
+    if (targetDoc.mode === 'latex') {
+      const updatedSource = targetDoc.latex_source + `\n\n% --- Handwritten Stylus Note ---\n% ${incomingStylusNote.replace(/\n/g, '\n% ')}\n`;
+      handleLatexChange(updatedSource);
+    } else {
+      const appended = targetDoc.content + `\n\n${incomingStylusNote}\n`;
+      handleContentChange(appended);
+    }
+
+    setToastBanner('Inserted handwritten note into active manuscript!');
+    onClearIncomingStylusNote?.();
+  }, [incomingStylusNote, activeManuscript, manuscripts, onClearIncomingStylusNote]);
 
   // Handle incoming comparative synthesis section from EvidenceMatrixStudio
   useEffect(() => {

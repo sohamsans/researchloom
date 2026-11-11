@@ -23,7 +23,8 @@ import {
   PanelLeftOpen,
   PanelLeftClose,
   ArrowLeftRight,
-  Cpu
+  Cpu,
+  Paperclip
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { HealthStatus } from '../types';
@@ -43,6 +44,7 @@ interface HeaderProps {
   onOpenRollback?: () => void;
   onOpenP2PSync?: () => void;
   onOpenMcp?: () => void;
+  onOpenClipper?: () => void;
   lastAutosave?: Date;
   onToggleSidebar?: () => void;
   isSidebarOpen?: boolean;
@@ -59,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenRollback,
   onOpenP2PSync,
   onOpenMcp,
+  onOpenClipper,
   lastAutosave,
   onToggleSidebar,
   isSidebarOpen
@@ -170,6 +173,19 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Cpu className="w-3.5 h-3.5 text-purple-400" />
             <span>MCP</span>
+          </button>
+        )}
+
+        {/* Web Clipper Paper Ingestion Modal Pill */}
+        {onOpenClipper && (
+          <button
+            type="button"
+            onClick={onOpenClipper}
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/80 text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-xs cursor-pointer"
+            title="Clip Academic Paper or Paste Metadata"
+          >
+            <Paperclip className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden xl:inline">Clip Paper</span>
           </button>
         )}
 

@@ -1,7 +1,7 @@
 import json
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -104,11 +104,37 @@ async def delete_matrix_column(column_id: str, db: AsyncSession = Depends(get_db
     return {"status": "deleted", "id": column_id}
 
 @router.post("/extract-cell", response_model=MatrixCellResponse)
+@router.post("/cell/extract", response_model=MatrixCellResponse)
 async def extract_matrix_cell(req: MatrixCellExtractRequest, db: AsyncSession = Depends(get_db)):
     """Extract a single matrix cell using LLM on the paper's local PDF full-text or cached abstract."""
+    # Check if cell already exists and is human-verified before spending LLM tokens
+    cell_stmt = select(MatrixCell).where(
+        MatrixCell.workspace_id == req.workspace_id,
+        MatrixCell.paper_id == req.paper_id,
+        MatrixCell.column_id == req.column_id
+    ).order_by(desc(MatrixCell.updated_at), desc(MatrixCell.id))
+    cell_res = await db.execute(cell_stmt)
+    existing_cell = cell_res.scalars().first()
+
+    if existing_cell and existing_cell.is_human_edited:
+        return MatrixCellResponse(
+            id=existing_cell.id,
+            workspace_id=existing_cell.workspace_id,
+            paper_id=existing_cell.paper_id,
+            column_id=existing_cell.column_id,
+            value=existing_cell.value,
+            status=existing_cell.status,
+            confidence=existing_cell.confidence,
+            source_sentence=existing_cell.source_sentence,
+            source_page=existing_cell.source_page,
+            bounding_box=json.loads(existing_cell.bounding_box_json) if existing_cell.bounding_box_json else None,
+            is_human_edited=True,
+            updated_at=existing_cell.updated_at.isoformat() if existing_cell.updated_at else ""
+        )
+
     # Find local PDF path if paper is vaulted
     pdf_path = None
-    abstract = None
+    abstract = (req.abstract or "").strip()[:4000] if req.abstract else None
 
     if req.paper_doi:
         v_stmt = select(PaperDocumentVault).where(PaperDocumentVault.doi == req.paper_doi)
@@ -117,12 +143,13 @@ async def extract_matrix_cell(req: MatrixCellExtractRequest, db: AsyncSession = 
         if vault_entry and vault_entry.file_path:
             pdf_path = vault_entry.file_path
 
-    # Check synthesis cache for abstract
-    c_stmt = select(PaperCache).where(PaperCache.title.ilike(f"%{req.paper_title[:40]}%"))
-    c_res = await db.execute(c_stmt)
-    cache_entry = c_res.scalars().first()
-    if cache_entry and cache_entry.abstract:
-        abstract = cache_entry.abstract
+    if not abstract:
+        # Check synthesis cache for abstract
+        c_stmt = select(PaperCache).where(PaperCache.title.ilike(f"%{req.paper_title[:40]}%"))
+        c_res = await db.execute(c_stmt)
+        cache_entry = c_res.scalars().first()
+        if cache_entry and cache_entry.abstract:
+            abstract = cache_entry.abstract
 
     llm = UniversalLLMClient(
         provider=req.model_provider,
@@ -141,15 +168,6 @@ async def extract_matrix_cell(req: MatrixCellExtractRequest, db: AsyncSession = 
         pdf_path=pdf_path,
         abstract=abstract
     )
-
-    # Upsert cell in database
-    cell_stmt = select(MatrixCell).where(
-        MatrixCell.workspace_id == req.workspace_id,
-        MatrixCell.paper_id == req.paper_id,
-        MatrixCell.column_id == req.column_id
-    )
-    cell_res = await db.execute(cell_stmt)
-    existing_cell = cell_res.scalar_one_or_none()
 
     bbox_json = json.dumps(extracted.get("bounding_box")) if extracted.get("bounding_box") else None
 

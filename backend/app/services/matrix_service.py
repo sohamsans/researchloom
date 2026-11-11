@@ -1,6 +1,9 @@
 import json
 import re
-import fitz # PyMuPDF
+try:
+    import fitz # PyMuPDF
+except ImportError:
+    fitz = None
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from app.services.llm_provider import UniversalLLMClient, clean_json_text
@@ -11,6 +14,8 @@ def extract_tables_and_text_from_pdf(pdf_path: str, max_pages: int = 12) -> Tupl
     Extract clean layout-aware text and Markdown tables from a local PDF file.
     Returns: (combined_context, list_of_table_metadata)
     """
+    if fitz is None:
+        return "", []
     doc = None
     try:
         doc = fitz.open(pdf_path)

@@ -22,6 +22,13 @@ interface PRISMAFlowDiagramProps {
   onOpenPdf?: (paperId: string, title: string) => void;
 }
 
+export function advanceScreeningIndex(currentIndex: number, totalPapers: number): number {
+  if (currentIndex < totalPapers - 1) {
+    return currentIndex + 1;
+  }
+  return totalPapers;
+}
+
 export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
   papers = [],
   onOpenPdf
@@ -29,6 +36,7 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
   const { showAlert, showToast } = useNativeDialog();
   const [stats, setStats] = useState<PRISMAStatsResponse | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [isExclusionModalOpen, setIsExclusionModalOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState<string>('Wrong Population');
   const [activeTab, setActiveTab] = useState<'screening' | 'flowchart' | 'audit'>('screening');
@@ -160,7 +168,7 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
 
   // Handle Keystrokes J (Include), K (Exclude), L (Maybe)
   const handleDecision = async (action: 'included' | 'excluded' | 'maybe', reason?: string) => {
-    if (!currentPaper) return;
+    if (isCompleted || !currentPaper) return;
 
     try {
       await logScreeningDecision({
@@ -173,9 +181,12 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
         reviewer_id: 'primary_researcher'
       });
 
-      // Move to next paper
+      // Move to next paper or terminate screening loop
       if (currentIndex < papers.length - 1) {
         setCurrentIndex((i) => i + 1);
+      } else {
+        setIsCompleted(true);
+        showToast('Screening completed for all candidate papers!', 'success');
       }
       setIsExclusionModalOpen(false);
       loadStats();
@@ -187,7 +198,7 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isExclusionModalOpen) return;
+      if (isCompleted || isExclusionModalOpen) return;
       // Hotkeys J/K/L
       if (e.key === 'j' || e.key === 'J') {
         handleDecision('included');

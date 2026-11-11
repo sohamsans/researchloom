@@ -14,7 +14,7 @@ async def test_api():
         res = await client.get("/api/auth/providers-info")
         assert res.status_code == 200, f"Providers info failed: {res.text}"
         data = res.json()
-        assert len(data["providers"]) == 6, "Expected 6 providers"
+        assert len(data["providers"]) == 8, f"Expected 8 providers, got {len(data['providers'])}"
         assert "Zero-Knowledge" in data["security_assurance"]["title"]
         print(f"[PASS] GET /api/auth/providers-info -> {len(data['providers'])} providers, Security Assurance loaded.")
 

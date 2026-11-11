@@ -34,7 +34,7 @@ import {
   Palette
 } from 'lucide-react';
 import { ReviewPaper, RawPaperMetadata } from '../../types';
-import { api } from '../../services/api';
+import { api, getApiBase, getAuthHeader, safeFetchJson } from '../../services/api';
 import { CollabRoomModal } from './CollabRoomModal';
 import { FlowContextMenu } from './FlowContextMenu';
 import { PaperPoolSelectorModal } from './PaperPoolSelectorModal';
@@ -85,6 +85,84 @@ export interface SavedCanvas {
   edges_json: string;
   viewport_json: string;
   updated_at?: string;
+}
+
+export function cleanAndOrientLayout(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
+  if (nodes.length === 0) return [];
+
+  const inDegree: Record<string, number> = {};
+  const adj: Record<string, string[]> = {};
+
+  nodes.forEach((n) => {
+    inDegree[n.id] = 0;
+    adj[n.id] = [];
+  });
+
+  edges.forEach((e) => {
+    if (adj[e.source]) adj[e.source].push(e.target);
+    if (inDegree[e.target] !== undefined) inDegree[e.target]++;
+  });
+
+  // Cycle-resilient topological layering
+  const layers: string[][] = [];
+  const remainingNodes = new Set(nodes.map(n => n.id));
+  const currentInDegree = { ...inDegree };
+
+  while (remainingNodes.size > 0) {
+    let currentLayer = Array.from(remainingNodes).filter(id => currentInDegree[id] === 0);
+
+    // Cycle detection: if no nodes have inDegree === 0, break cycle by choosing node with max out-degree
+    if (currentLayer.length === 0) {
+      let maxOutNode = Array.from(remainingNodes)[0];
+      let maxOut = -1;
+      remainingNodes.forEach(id => {
+        const outCount = (adj[id] || []).length;
+        if (outCount > maxOut) {
+          maxOut = outCount;
+          maxOutNode = id;
+        }
+      });
+      currentLayer = [maxOutNode];
+    }
+
+    layers.push(currentLayer);
+    currentLayer.forEach(id => {
+      remainingNodes.delete(id);
+      (adj[id] || []).forEach(neighbor => {
+        if (currentInDegree[neighbor] > 0) {
+          currentInDegree[neighbor]--;
+        }
+      });
+    });
+  }
+
+  // Deep clone nodes to preserve React state immutability
+  const MAX_NODES_PER_ROW = 3;
+  const colSpacing = 320;
+  const cardRowSpacing = 160;
+  const updatedNodes: FlowNode[] = nodes.map(n => ({ ...n }));
+  let accumulatedY = 80;
+
+  layers.forEach((layerNodes) => {
+    const numRowsInLayer = Math.ceil(layerNodes.length / MAX_NODES_PER_ROW);
+
+    layerNodes.forEach((nodeId, idx) => {
+      const rowInLayer = Math.floor(idx / MAX_NODES_PER_ROW);
+      const colInLayer = idx % MAX_NODES_PER_ROW;
+      const countInThisRow = Math.min(MAX_NODES_PER_ROW, layerNodes.length - rowInLayer * MAX_NODES_PER_ROW);
+      const rowStartX = Math.max(80, 520 - (countInThisRow * colSpacing) / 2);
+
+      const node = updatedNodes.find((n) => n.id === nodeId);
+      if (node) {
+        node.x = rowStartX + colInLayer * colSpacing;
+        node.y = accumulatedY + rowInLayer * cardRowSpacing;
+      }
+    });
+
+    accumulatedY += numRowsInLayer * cardRowSpacing + 70;
+  });
+
+  return updatedNodes;
 }
 
 interface FlowMapCanvasProps {
@@ -227,9 +305,9 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     } catch (e) {}
 
     try {
-      const resp = await fetch('/api/flow/canvases');
+      const resp = await fetch(`${getApiBase()}/flow/canvases`, { headers: getAuthHeader() });
       if (resp.ok) {
-        const data = await resp.json();
+        const data = await safeFetchJson<any[]>(resp, 'Load canvases');
         if (Array.isArray(data) && data.length > 0) {
           setCanvases(data);
           const first = data[0];
@@ -247,6 +325,24 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
       }
     } catch (e) {
       console.warn('Failed to load canvases:', e);
+      try {
+        const stored = localStorage.getItem('researchloom_flow_canvases');
+        if (stored) {
+          const localCanvases = JSON.parse(stored);
+          if (Array.isArray(localCanvases) && localCanvases.length > 0) {
+            setCanvases(localCanvases);
+            const first = localCanvases[0];
+            setActiveCanvasId(first.id);
+            setActiveCanvasTitle(first.title);
+            setNodes(JSON.parse(first.nodes_json || '[]'));
+            setEdges(JSON.parse(first.edges_json || '[]'));
+            const vp = JSON.parse(first.viewport_json || '{}');
+            if (vp.x !== undefined) setPan({ x: vp.x, y: vp.y });
+            if (vp.zoom) setZoom(vp.zoom);
+            return;
+          }
+        }
+      } catch (err) {}
     }
     // Fallback: populate from current review / candidate papers cleanly
     initializeFromCurrentSession();
@@ -328,19 +424,19 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
       };
 
       if (activeCanvasId && activeCanvasId !== 'default_canvas') {
-        await fetch(`/api/flow/canvases/${activeCanvasId}`, {
+        await fetch(`${getApiBase()}/flow/canvases/${activeCanvasId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify(payload)
         });
       } else {
-        const resp = await fetch('/api/flow/canvases', {
+        const resp = await fetch(`${getApiBase()}/flow/canvases`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ ...payload, topic: activeCanvasTitle })
         });
         if (resp.ok) {
-          const created = await resp.json();
+          const created = await safeFetchJson<any>(resp, 'Create canvas');
           setActiveCanvasId(created.id);
         }
       }
@@ -351,20 +447,25 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
 
   const handleCreateNewCanvas = async () => {
     const title = `Topic Canvas ${canvases.length + 1}`;
+    const newCanvas = {
+      id: `canvas_${Date.now()}`,
+      title,
+      topic: title,
+      nodes_json: '[]',
+      edges_json: '[]',
+      viewport_json: '{"x": 0, "y": 0, "zoom": 1}',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     try {
-      const resp = await fetch('/api/flow/canvases', {
+      const resp = await fetch(`${getApiBase()}/flow/canvases`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          topic: title,
-          nodes_json: '[]',
-          edges_json: '[]',
-          viewport_json: '{"x": 0, "y": 0, "zoom": 1}'
-        })
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(newCanvas)
       });
       if (resp.ok) {
-        const created = await resp.json();
+        const created = await safeFetchJson<any>(resp, 'Create canvas');
         setCanvases([created, ...canvases]);
         setActiveCanvasId(created.id);
         setActiveCanvasTitle(created.title);
@@ -373,10 +474,25 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
         setPan({ x: 0, y: 0 });
         setZoom(1);
         setIsCanvasDropdownOpen(false);
+        return;
       }
     } catch (e) {
-      console.warn('Error creating canvas:', e);
+      console.warn('Backend canvas creation failed, using offline localStorage:', e);
     }
+
+    // Offline fallback
+    const updated = [newCanvas, ...canvases];
+    setCanvases(updated);
+    setActiveCanvasId(newCanvas.id);
+    setActiveCanvasTitle(newCanvas.title);
+    setNodes([]);
+    setEdges([]);
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+    setIsCanvasDropdownOpen(false);
+    try {
+      localStorage.setItem('researchloom_flow_canvases', JSON.stringify(updated));
+    } catch (e) {}
   };
 
   const handleSwitchCanvas = (c: SavedCanvas) => {
@@ -401,8 +517,9 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
     if (!confirmed) return;
 
     try {
-      const resp = await fetch(`/api/flow/canvases/${canvasId}`, {
-        method: 'DELETE'
+      const resp = await fetch(`${getApiBase()}/flow/canvases/${canvasId}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
       });
       if (resp.ok) {
         const remaining = canvases.filter((c) => c.id !== canvasId);
@@ -505,79 +622,8 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
   }, [nodes]);
   // Arranges parent citations, expanded child papers, and mind-map notes into neat topological tiers
   const handleCleanAndOrient = useCallback(() => {
-    if (nodes.length === 0) return;
-
-    // Build adjacency list
-    const inDegree: { [id: string]: number } = {};
-    const adj: { [id: string]: string[] } = {};
-
-    nodes.forEach((n) => {
-      inDegree[n.id] = 0;
-      adj[n.id] = [];
-    });
-
-    edges.forEach((e) => {
-      if (adj[e.source]) adj[e.source].push(e.target);
-      if (inDegree[e.target] !== undefined) inDegree[e.target]++;
-    });
-
-    // Determine topological layers
-    const layers: string[][] = [];
-    let currentLayer = nodes.filter((n) => inDegree[n.id] === 0).map((n) => n.id);
-    const visited = new Set<string>();
-
-    if (currentLayer.length === 0 && nodes.length > 0) {
-      currentLayer = [nodes[0].id];
-    }
-
-    while (currentLayer.length > 0) {
-      layers.push(currentLayer);
-      currentLayer.forEach((id) => visited.add(id));
-
-      const nextLayer: string[] = [];
-      currentLayer.forEach((id) => {
-        (adj[id] || []).forEach((neighbor) => {
-          if (!visited.has(neighbor) && !nextLayer.includes(neighbor)) {
-            nextLayer.push(neighbor);
-          }
-        });
-      });
-      currentLayer = nextLayer;
-    }
-
-    // Add unvisited disconnected nodes to the final layer
-    const unvisited = nodes.filter((n) => !visited.has(n.id)).map((n) => n.id);
-    if (unvisited.length > 0) {
-      layers.push(unvisited);
-    }
-
-    // Reposition nodes based on computed tiers with row-wrapping to avoid infinite horizontal sprawl
-    const MAX_NODES_PER_ROW = 3;
-    const colSpacing = 320;
-    const cardRowSpacing = 160;
-    const updatedNodes = [...nodes];
-    let accumulatedY = 80;
-
-    layers.forEach((layerNodes) => {
-      const numRowsInLayer = Math.ceil(layerNodes.length / MAX_NODES_PER_ROW);
-
-      layerNodes.forEach((nodeId, idx) => {
-        const rowInLayer = Math.floor(idx / MAX_NODES_PER_ROW);
-        const colInLayer = idx % MAX_NODES_PER_ROW;
-        const countInThisRow = Math.min(MAX_NODES_PER_ROW, layerNodes.length - rowInLayer * MAX_NODES_PER_ROW);
-        const rowStartX = Math.max(80, 520 - (countInThisRow * colSpacing) / 2);
-
-        const node = updatedNodes.find((n) => n.id === nodeId);
-        if (node) {
-          node.x = rowStartX + colInLayer * colSpacing;
-          node.y = accumulatedY + rowInLayer * cardRowSpacing;
-        }
-      });
-
-      accumulatedY += numRowsInLayer * cardRowSpacing + 70;
-    });
-
-    setNodes(updatedNodes);
+    const updated = cleanAndOrientLayout(nodes, edges);
+    setNodes(updated);
   }, [nodes, edges]);
 
   // Clean & Orient specifically for an Expanded Folder's Child Papers
@@ -689,9 +735,11 @@ export const FlowMapCanvas: React.FC<FlowMapCanvasProps> = ({
 
     setPaperTrailLoading(node.id);
     try {
-      const resp = await fetch(`/api/flow/paper-trail?doi=${encodeURIComponent(node.doi)}`);
+      const resp = await fetch(`${getApiBase()}/flow/paper-trail?doi=${encodeURIComponent(node.doi)}`, {
+        headers: getAuthHeader()
+      });
       if (!resp.ok) throw new Error('Paper trail query failed');
-      const data = await resp.json();
+      const data = await safeFetchJson<any>(resp, 'Paper trail query');
 
       if (data.references && data.references.length > 0) {
         // Group extracted references into a folder hub and expand reference cards cleanly

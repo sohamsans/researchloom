@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Network, Laptop, Tablet, RefreshCw, CheckCircle, ArrowLeftRight, X, ShieldCheck } from 'lucide-react';
+import { getApiBase, getAuthHeader, gatherEodCommitPayload } from '../services/api';
 
 interface P2PSyncModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const P2PSyncModal: React.FC<P2PSyncModalProps> = ({ isOpen, onClose }) =
     setLoading(true);
     setSyncSuccess(false);
     try {
-      const res = await fetch('/api/sync/eod/diff');
+      const res = await fetch(`${getApiBase()}/sync/eod/diff`, { headers: getAuthHeader() });
       if (res.ok) {
         const data = await res.json();
         setDiffData(data);
@@ -37,14 +38,11 @@ export const P2PSyncModal: React.FC<P2PSyncModalProps> = ({ isOpen, onClose }) =
   const handleSyncCommit = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/sync/eod/commit', {
+      const payload = gatherEodCommitPayload();
+      const res = await fetch(`${getApiBase()}/sync/eod/commit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          new_papers: [],
-          notes: [],
-          stylus_strokes: []
-        })
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const data = await res.json();

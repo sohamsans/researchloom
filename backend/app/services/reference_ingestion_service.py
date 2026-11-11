@@ -88,6 +88,69 @@ def parse_csl_json(content: str, collection_name: str) -> List[Dict[str, Any]]:
 
     return records
 
+def _extract_bibtex_fields(body: str) -> Dict[str, str]:
+    """Extract BibTeX key-value fields with balance-aware nested brace support and unquoted numbers."""
+    fields = {}
+    i = 0
+    n = len(body)
+
+    while i < n:
+        # Find next field assignment: key = ...
+        eq_match = re.search(r'(\b\w+)\s*=', body[i:])
+        if not eq_match:
+            break
+
+        f_name = eq_match.group(1).lower()
+        val_start = i + eq_match.end()
+        # Skip leading whitespace
+        while val_start < n and body[val_start].isspace():
+            val_start += 1
+
+        if val_start >= n:
+            break
+
+        f_val = ""
+        next_i = val_start
+
+        if body[val_start] == '{':
+            # Count balanced curly braces
+            brace_depth = 1
+            idx = val_start + 1
+            while idx < n and brace_depth > 0:
+                if body[idx] == '\\' and idx + 1 < n:
+                    idx += 2
+                    continue
+                elif body[idx] == '{':
+                    brace_depth += 1
+                elif body[idx] == '}':
+                    brace_depth -= 1
+                idx += 1
+            f_val = body[val_start + 1:idx - 1] if brace_depth == 0 else body[val_start + 1:idx]
+            next_i = idx
+        elif body[val_start] == '"':
+            # Captures double-quoted string
+            idx = val_start + 1
+            while idx < n and body[idx] != '"':
+                if body[idx] == '\\' and idx + 1 < n:
+                    idx += 2
+                else:
+                    idx += 1
+            f_val = body[val_start + 1:idx]
+            next_i = idx + 1 if idx < n else n
+        else:
+            # Captures unquoted integer, year, volume, or identifier until comma or newline or closing brace
+            match_bare = re.match(r'([^,\n\}]+)', body[val_start:])
+            if match_bare:
+                f_val = match_bare.group(1).strip()
+                next_i = val_start + len(match_bare.group(1))
+            else:
+                next_i = val_start + 1
+
+        fields[f_name] = f_val.strip()
+        i = next_i
+
+    return fields
+
 def parse_bibtex_entries(content: str, collection_name: str) -> List[Dict[str, Any]]:
     """Parse raw BibTeX string into standard bibliographic records."""
     records = []
@@ -99,13 +162,7 @@ def parse_bibtex_entries(content: str, collection_name: str) -> List[Dict[str, A
         original_key = match.group(2).strip()
         body = match.group(3)
 
-        # Parse fields: field_name = {...} or field_name = "..."
-        field_pattern = re.compile(r'(\w+)\s*=\s*(?:\{([\s\S]*?)\}|"([\s\S]*?)")\s*(?:,|$)', re.MULTILINE)
-        fields = {}
-        for fm in field_pattern.finditer(body):
-            f_name = fm.group(1).lower()
-            f_val = fm.group(2) if fm.group(2) is not None else fm.group(3)
-            fields[f_name] = f_val.strip() if f_val else ""
+        fields = _extract_bibtex_fields(body)
 
         title = fields.get("title") or original_key
         raw_authors = fields.get("author") or ""
@@ -128,10 +185,10 @@ def parse_bibtex_entries(content: str, collection_name: str) -> List[Dict[str, A
             "citation_key": std_key,
             "cite_author_year": std_key[:30],
             "entry_type": entry_type,
-            "title": escape_latex_text(title),
+            "title": title,
             "authors_json": json.dumps(authors),
             "year": year,
-            "venue": escape_latex_text(venue) if venue else None,
+            "venue": venue,
             "volume": fields.get("volume"),
             "issue": fields.get("number") or fields.get("issue"),
             "pages": fields.get("pages"),
