@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v4.3.9] - 2026-11-12
+
+### Fixed & Enhanced
+- **Cross-Feature Interaction & Adversarial 5-Critic Remediation**:
+  - **F1: Literature Discovery & Screening**:
+    - Eliminated PRISMA statistics double-counting on repeated screening updates via descending audit deduplication by `paper_id`.
+    - Resolved silent preprint dropouts on arXiv requests by switching to HTTPS and enabling `follow_redirects=True`.
+    - Implemented monotonic field-level metadata coalescing to prevent verified DOIs and PDFs from being overwritten.
+    - Added terminal state handling in screening triage hotkey loop when reaching the final candidate paper.
+  - **F2: Flow Map Canvas Studio**:
+    - Centralized all network requests using `getApiBase()`, `getAuthHeader()`, and `safeFetchJson`, enabling seamless operation on Android tablets and remote desktop servers.
+    - Implemented immutable shallow-cloned nodes in topological DAG auto-layout.
+    - Added maximum out-degree cycle-peeling to prevent infinite layout loops or collapse on cyclic citation graphs.
+    - Added multi-canvas `localStorage` persistence fallback for offline operation.
+  - **F3: Evidence Matrix Studio**:
+    - Added `abstract` fallback context in cell extraction and registered `/api/matrix/cell/extract` route alias.
+    - Added token short-circuiting for human-verified cells (`is_human_edited == True`) to preserve researcher inputs and prevent unnecessary LLM API calls.
+    - Enforced a 15-paper row selection guard keeping comparative synthesis prompts within Groq free-tier token limits ($\approx 5,024$ tokens vs 6,000 TPM limit).
+    - Aligned offline citation keys to author surname conventions (`Vaswani2017`).
+  - **F4: Master Reference Manager**:
+    - Implemented balance-aware BibTeX tokenizer handling curly brace depth, quoted values, escaped characters (`\{`, `\}`), and unquoted numeric years/volumes (`year = 2024`), fixing invalid `Nd` citation keys and truncated titles.
+    - Added client-side keyword and publication year filtering to offline Reference Manager.
+  - **F5: Standalone Sync & Storage**:
+    - Configured SQLite connection listener with `PRAGMA journal_mode=WAL;` and `PRAGMA busy_timeout=10000;`, eliminating concurrency lock collisions.
+    - Implemented atomic SQLite persistence for `/api/sync/push` and `/api/sync/eod/commit` with intra-batch citation key collision disambiguation (`_1`, `_2`) and visual stylus drawing notes.
+    - Exported `gatherEodCommitPayload()` to sync real references and notes from local browser storage.
+  - **F6: Composition Studios**:
+    - Added display math regex `/^\s*(\\begin\{(equation|align|gather|multline|flalign)\*?\}|\\\[|\$\$)/` in Writing Studio to eliminate duplicate nested `\begin{equation}` environments.
+    - Added dedicated stylus note routing and "To Studio" action button in Stylus Studio.
+    - Fixed DataSheet LaTeX table exporter type coercion for numbers and added comprehensive escaping (`\%`, `\_`, `\&`, `\#`, `\$`, `\^`, `\~`).
+  - **F7: Web Clipper & Council**:
+    - Authored in-app `WebClipperModal.tsx` styled with anti-slop dark zinc design tokens, connected to `/api/clipper/ingest` with offline fallback.
+    - Forwarded user queries directly to `MultiLLMCouncilService.deliberate(...)`.
+
+---
+
 ## [v4.3.8] - 2026-11-07
 
 ### Added

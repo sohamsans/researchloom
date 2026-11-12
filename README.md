@@ -124,17 +124,17 @@ researchloom/
 
 ResearchLoom (Samhita) is distributed as a lightweight, 100% offline-ready desktop and tablet application across all major platforms:
 
-### Latest Release: [`v4.3.8`](https://github.com/sohamsans/researchloom/releases/tag/v4.3.8)
+### Latest Release: [`v4.3.9`](https://github.com/sohamsans/researchloom/releases/tag/v4.3.9)
 
 | Operating System | Package Format | Download Link | Features |
 | :--- | :--- | :--- | :--- |
-| **Windows 10/11 (64-bit)** | Inno Setup Installer (`.exe`) | [`ResearchLoom-Setup.exe`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-Setup.exe) | Desktop shortcuts, system tray auto-minimize, uninstaller |
-| **Windows 10/11 (64-bit)** | Portable Standalone (`.exe`) | [`ResearchLoom.exe`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom.exe) | Zero-installation, single portable binary |
-| **Windows 10/11 (64-bit)** | ZIP Archive (`.zip`) | [`ResearchLoom-windows-x64.zip`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-windows-x64.zip) | Portable zipped bundle |
-| **macOS (Apple Silicon M-Series)** | Native Disk Image (`.dmg`) | [`ResearchLoom-macOS-arm64.dmg`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-macOS-arm64.dmg) | Drag-and-drop to Applications folder |
-| **Linux (x86_64)** | Universal AppImage (`.AppImage`) | [`ResearchLoom-linux-x86_64.AppImage`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-linux-x86_64.AppImage) | Single-file portable Linux binary (Ubuntu, Fedora, Arch) |
-| **Linux (x86_64)** | Tarball Archive (`.tar.gz`) | [`ResearchLoom-linux-x86_64.tar.gz`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-linux-x86_64.tar.gz) | Complete Linux runtime archive |
-| **Android Tablets** | Standalone APK (`.apk`) | [`ResearchLoom-android-tablet.apk`](https://github.com/sohamsans/researchloom/releases/download/v4.3.8/ResearchLoom-android-tablet.apk) | Samsung S-Pen & Xiaomi Smart Pen active stylus dynamics |
+| **Windows 10/11 (64-bit)** | Inno Setup Installer (`.exe`) | [`ResearchLoom-Setup.exe`](https://github.com/sohamsans/researchloom/releases/download/v4.3.9/ResearchLoom-Setup.exe) | Desktop shortcuts, system tray auto-minimize, uninstaller |
+| **Windows 10/11 (64-bit)** | Portable Standalone (`.exe`) | [`ResearchLoom.exe`](https://github.com/sohamsans/researchloom/releases/download/v4.3.9/ResearchLoom.exe) | Zero-installation, single portable binary |
+| **Windows 10/11 (64-bit)** | ZIP Archive (`.zip`) | [`ResearchLoom-windows-x64.zip`](https://github.com/sohamsans/researchloom/releases/download/v4.3.9/ResearchLoom-windows-x64.zip) | Portable zipped bundle |
+| **macOS (Apple Silicon M-Series)** | Native Disk Image (`.dmg`) | [`ResearchLoom-macOS-arm64.dmg`](https://github.com/sohamsans/researchloom/releases/download/v4.3.9/ResearchLoom-macOS-arm64.dmg) | Drag-and-drop to Applications folder |
+| **Linux (x86_64)** | Universal AppImage (`.AppImage`) | [`ResearchLoom-linux-x86_64.AppImage`](https://github.com/sohamsans/researchloom/releases/download/v4.3.9/ResearchLoom-linux-x86_64.AppImage) | Single-file portable Linux binary (Ubuntu, Fedora, Arch) |
+| **Linux (x86_64)** | Tarball Archive (`.tar.gz`) | [`ResearchLoom-linux-x86_64.tar.gz`](https://github.com/sohamsans/researchloom/releases/download/v4.3.9/ResearchLoom-linux-x86_64.tar.gz) | Complete Linux runtime archive |
+| **Android Tablets** | Standalone APK (`.apk`) | [`ResearchLoom-android-tablet.apk`](https://github.com/sohamsans/researchloom/releases/download/v4.3.9/ResearchLoom-android-tablet.apk) | Samsung S-Pen & Xiaomi Smart Pen active stylus dynamics |
 
 ### Hardware Stylus & Tablet Features (Android)
 - **Active Pressure Sensitivity**: Full hardware pressure dynamics (`0.0` - `1.0`) with S-Pen, Xiaomi Smart Pen, and USI active styluses.
