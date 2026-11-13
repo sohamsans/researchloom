@@ -76,3 +76,6 @@ FIX_PLAN.md
 *.db-shm
 *.db-wal
 
+
+patch_release.py
+

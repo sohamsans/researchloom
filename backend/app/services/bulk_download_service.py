@@ -30,11 +30,15 @@ def escape_latex_text(text_str: str) -> str:
         if token.startswith('$') and token.endswith('$') and len(token) > 1:
             escaped_tokens.append(token)
         else:
+            # Linear non-backtracking scanner to avoid polynomial ReDoS on repeated backslashes
             t = token
-            t = re.sub(r'(?<!\\)((?:\\\\)*)&', r'\1\\&', t)
-            t = re.sub(r'(?<!\\)((?:\\\\)*)%', r'\1\\%', t)
-            t = re.sub(r'(?<!\\)((?:\\\\)*)_', r'\1\\_', t)
-            t = re.sub(r'(?<!\\)((?:\\\\)*)#', r'\1\\#', t)
+            chars = []
+            for ch in t:
+                if ch in ('&', '%', '_', '#'):
+                    chars.append('\\' + ch)
+                else:
+                    chars.append(ch)
+            t = "".join(chars)
             t = re.sub(r'(?<!\{)\b[A-Z]{2,}(?:-[0-9A-Za-z]+)?\b(?!\})', r'{\g<0>}', t)
             escaped_tokens.append(t)
     return "".join(escaped_tokens)

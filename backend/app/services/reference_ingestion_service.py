@@ -152,15 +152,54 @@ def _extract_bibtex_fields(body: str) -> Dict[str, str]:
     return fields
 
 def parse_bibtex_entries(content: str, collection_name: str) -> List[Dict[str, Any]]:
-    """Parse raw BibTeX string into standard bibliographic records."""
+    """Parse raw BibTeX string into standard bibliographic records using non-backtracking scanner."""
     records = []
-    # Pattern to find @entry_type{key, ...}
-    entry_pattern = re.compile(r"@(\w+)\s*\{\s*([^,]+),([\s\S]*?)(?=\n@|\Z)")
+    if not content or not content.strip():
+        return records
 
-    for match in entry_pattern.finditer(content):
-        entry_type = match.group(1).lower()
-        original_key = match.group(2).strip()
-        body = match.group(3)
+    # Scan sequentially for @entry_type{...} blocks to completely eliminate polynomial ReDoS
+    i = 0
+    n = len(content)
+    while i < n:
+        at_pos = content.find("@", i)
+        if at_pos == -1:
+            break
+
+        # Match entry type: e.g. @article, @inproceedings
+        brace_pos = content.find("{", at_pos)
+        if brace_pos == -1:
+            i = at_pos + 1
+            continue
+
+        header = content[at_pos + 1:brace_pos].strip()
+        if not header.isalnum() and "_" not in header:
+            i = at_pos + 1
+            continue
+        entry_type = header.lower()
+
+        # Find balanced closing brace for this entry
+        depth = 1
+        curr = brace_pos + 1
+        in_quote = False
+        while curr < n and depth > 0:
+            c = content[curr]
+            if c == '"' and content[curr - 1] != '\\':
+                in_quote = not in_quote
+            elif not in_quote:
+                if c == '{':
+                    depth += 1
+                elif c == '}':
+                    depth -= 1
+            curr += 1
+
+        entry_body = content[brace_pos + 1:curr - 1]
+        comma_pos = entry_body.find(",")
+        if comma_pos != -1:
+            original_key = entry_body[:comma_pos].strip()
+            body = entry_body[comma_pos + 1:]
+        else:
+            original_key = entry_body.strip()
+            body = ""
 
         fields = _extract_bibtex_fields(body)
 
@@ -182,10 +221,12 @@ def parse_bibtex_entries(content: str, collection_name: str) -> List[Dict[str, A
         std_key = normalize_citation_key(authors, year, title)
 
         records.append({
+            "original_key": original_key,
             "citation_key": std_key,
             "cite_author_year": std_key[:30],
             "entry_type": entry_type,
             "title": title,
+            "authors": authors,
             "authors_json": json.dumps(authors),
             "year": year,
             "venue": venue,
@@ -196,10 +237,11 @@ def parse_bibtex_entries(content: str, collection_name: str) -> List[Dict[str, A
             "doi": doi,
             "url": fields.get("url"),
             "abstract": fields.get("abstract"),
-            "bibtex_raw": match.group(0).strip(),
             "collection_name": collection_name,
-            "source": "bibtex_import"
+            "source": "bibtex_import",
+            "raw_bibtex": content[at_pos:curr]
         })
+        i = curr
 
     return records
 
@@ -298,7 +340,12 @@ async def verify_doi_crossref(doi: str) -> VerifyDOIResponse:
     if not clean_doi:
         return VerifyDOIResponse(doi=doi, verified=False, error="Invalid empty DOI")
 
-    url = f"https://api.crossref.org/works/{clean_doi}"
+    # Guard against partial SSRF and path traversal in Crossref endpoint
+    if not re.match(r"^10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$", clean_doi):
+        return VerifyDOIResponse(doi=doi, verified=False, error="Invalid DOI format for Crossref query")
+
+    safe_doi = urllib.parse.quote(clean_doi, safe="/")
+    url = f"https://api.crossref.org/works/{safe_doi}"
     headers = {
         "User-Agent": "ResearchLoom/4.3.1 (mailto:autolit@research.local)",
         "Accept": "application/json"
@@ -359,5 +406,6 @@ async def verify_doi_crossref(doi: str) -> VerifyDOIResponse:
                 else:
                     return VerifyDOIResponse(doi=clean_doi, verified=False, error=f"Crossref returned HTTP {resp.status_code}")
             except Exception as e:
-                logger.error(f"[Crossref Verification] Failed for {clean_doi}: {e}")
+                sanitized_doi = clean_doi.replace("\r", "").replace("\n", "")
+                logger.error(f"[Crossref Verification] Failed for {sanitized_doi}: {e}")
                 return VerifyDOIResponse(doi=clean_doi, verified=False, error=f"Network error: {str(e)}")

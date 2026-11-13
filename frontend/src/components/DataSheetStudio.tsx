@@ -24,17 +24,19 @@ export const escapeLatex = (val: any): string => {
   if (val === null || val === undefined) return '-';
   const str = String(val);
   if (!str.trim()) return '-';
-  return str
-    .replace(/\\/g, '\\textbackslash{}')
-    .replace(/\{/g, '\\{')
-    .replace(/\}/g, '\\}')
-    .replace(/%/g, '\\%')
-    .replace(/_/g, '\\_')
-    .replace(/&/g, '\\&')
-    .replace(/#/g, '\\#')
-    .replace(/\$/g, '\\$')
-    .replace(/\^/g, '\\textasciicircum{}')
-    .replace(/~/g, '\\textasciitilde{}');
+  // Step 1: Escape backslashes first to prevent double-escaping downstream LaTeX commands
+  let out = str.replace(/\\/g, '\\textbackslash{}');
+  // Step 2: Escape LaTeX special grouping and formatting characters
+  out = out.replace(/\{/g, '\\{');
+  out = out.replace(/\}/g, '\\}');
+  out = out.replace(/%/g, '\\%');
+  out = out.replace(/_/g, '\\_');
+  out = out.replace(/&/g, '\\&');
+  out = out.replace(/#/g, '\\#');
+  out = out.replace(/\$/g, '\\$');
+  out = out.replace(/\^/g, '\\textasciicircum{}');
+  out = out.replace(/~/g, '\\textasciitilde{}');
+  return out;
 };
 
 export const DataSheetStudio: React.FC = () => {

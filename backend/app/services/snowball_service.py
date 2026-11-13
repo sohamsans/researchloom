@@ -1,4 +1,5 @@
 import re
+import urllib.parse
 import logging
 from typing import Optional, List, Dict, Any, Tuple
 import httpx
@@ -50,7 +51,8 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
 
     # 1. OpenAlex Canonical ID (W...)
     if re.match(r"^W\d+$", clean_id, re.IGNORECASE):
-        url = f"{OPENALEX_BASE_URL}/works/{clean_id.upper()}?mailto={POLITE_EMAIL}"
+        clean_openalex = clean_id.upper()
+        url = f"{OPENALEX_BASE_URL}/works/{clean_openalex}?mailto={POLITE_EMAIL}"
         resp = await client.get(url, headers=HEADERS, timeout=12.0)
         if resp.status_code == 200:
             return resp.json()
@@ -62,7 +64,8 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
     arxiv_match = re.match(r"^(\d{4}\.\d{4,5}(?:v\d+)?)$", norm_arxiv, re.IGNORECASE)
     if arxiv_match:
         arxiv_id = arxiv_match.group(1)
-        url = f"{OPENALEX_BASE_URL}/works/https://arxiv.org/abs/{arxiv_id}?mailto={POLITE_EMAIL}"
+        safe_arxiv_id = urllib.parse.quote(arxiv_id, safe=".")
+        url = f"{OPENALEX_BASE_URL}/works/https://arxiv.org/abs/{safe_arxiv_id}?mailto={POLITE_EMAIL}"
         resp = await client.get(url, headers=HEADERS, timeout=12.0)
         if resp.status_code == 200:
             return resp.json()
@@ -83,30 +86,36 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
             clean_doi = clean_doi[len(prefix):]
             break
 
-    if "/" in clean_doi:
-        url = f"{OPENALEX_BASE_URL}/works/https://doi.org/{clean_doi}?mailto={POLITE_EMAIL}"
+    if "/" in clean_doi and re.match(r"^10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$", clean_doi):
+        safe_doi = urllib.parse.quote(clean_doi, safe="/")
+        url = f"{OPENALEX_BASE_URL}/works/https://doi.org/{safe_doi}?mailto={POLITE_EMAIL}"
         resp = await client.get(url, headers=HEADERS, timeout=12.0)
         if resp.status_code == 200:
             return resp.json()
 
     # 5. Search fallback by clean_id if it resembles text (and not synthetic IDs like synth_0)
     if not clean_id.startswith("synth_") and len(clean_id) > 3:
-        url = f"{OPENALEX_BASE_URL}/works?filter=default.search:{clean_id}&per-page=1&mailto={POLITE_EMAIL}"
-        resp = await client.get(url, headers=HEADERS, timeout=12.0)
-        if resp.status_code == 200:
-            results = resp.json().get("results", [])
-            if results:
-                return results[0]
+        clean_search = re.sub(r"[^\w\s-]", " ", clean_id).strip()
+        if clean_search:
+            safe_search = urllib.parse.quote(clean_search)
+            url = f"{OPENALEX_BASE_URL}/works?filter=default.search:{safe_search}&per-page=1&mailto={POLITE_EMAIL}"
+            resp = await client.get(url, headers=HEADERS, timeout=12.0)
+            if resp.status_code == 200:
+                results = resp.json().get("results", [])
+                if results:
+                    return results[0]
 
     # 6. Fallback search by title if passed
     if title and len(title.strip()) > 3:
-        clean_title = re.sub(r"[^\w\s]", " ", title).strip()
-        url = f"{OPENALEX_BASE_URL}/works?search={clean_title}&per-page=1&mailto={POLITE_EMAIL}"
-        resp = await client.get(url, headers=HEADERS, timeout=12.0)
-        if resp.status_code == 200:
-            results = resp.json().get("results", [])
-            if results:
-                return results[0]
+        clean_title = re.sub(r"[^\w\s-]", " ", title).strip()
+        if clean_title:
+            safe_title = urllib.parse.quote(clean_title)
+            url = f"{OPENALEX_BASE_URL}/works?search={safe_title}&per-page=1&mailto={POLITE_EMAIL}"
+            resp = await client.get(url, headers=HEADERS, timeout=12.0)
+            if resp.status_code == 200:
+                results = resp.json().get("results", [])
+                if results:
+                    return results[0]
 
     return None
 
@@ -196,7 +205,8 @@ async def perform_citation_snowballing(
         # Execute Snowball Query
         # Backward = Predecessors cited by seed -> filter=cited_by:canonical_openalex_id
         # Forward = Successors that cite seed -> filter=cites:canonical_openalex_id
-        filter_param = f"cited_by:{canonical_openalex_id}" if direction == "backward" else f"cites:{canonical_openalex_id}"
+        safe_canonical_id = urllib.parse.quote(canonical_openalex_id, safe="")
+        filter_param = f"cited_by:{safe_canonical_id}" if direction == "backward" else f"cites:{safe_canonical_id}"
         relation_label = "predecessor" if direction == "backward" else "successor"
 
         query_url = (

@@ -105,7 +105,12 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
     const included = stats.total_included || 0;
 
     const reasons = Object.entries(stats.screen_excluded_by_reason || {})
-      .map(([r, c]) => `${r.replace(/[%$&#_]/g, '\\$&')}: $n = ${c}$`)
+      .map(([r, c]) => {
+        const cleanReason = r
+          .replace(/\\/g, '\\textbackslash{}')
+          .replace(/[%$&#_{}]/g, '\\$&');
+        return `${cleanReason}: $n = ${c}$`;
+      })
       .join('\\\\ ');
 
     const tikzCode = `\\documentclass{article}
