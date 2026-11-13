@@ -444,11 +444,9 @@ async def fetch_arxiv_papers(
 ) -> List[RawPaperMetadata]:
     """Fetch preprints from arXiv API."""
     # Whitelist and sanitize search query to prevent partial SSRF
-    clean_topic = re.sub(r"[^\w\s:\"-]", " ", topic).strip()
-    encoded_topic = urllib.parse.quote(clean_topic or "science")
+    clean_topic = re.sub(r"[^\w\s:\"-]", " ", topic).strip() or "science"
     safe_offset = max(0, int(offset))
     safe_max_results = min(max(1, int(max_results)), 100)
-    url = f"https://export.arxiv.org/api/query?search_query=all:{encoded_topic}&start={safe_offset}&max_results={safe_max_results}&sortBy=relevance&sortOrder=descending"
     
     papers: List[RawPaperMetadata] = []
     should_close = False
@@ -457,7 +455,17 @@ async def fetch_arxiv_papers(
         should_close = True
 
     try:
-        response = await client.get(url, follow_redirects=True)
+        response = await client.get(
+            "https://export.arxiv.org/api/query",
+            params={
+                "search_query": f"all:{clean_topic}",
+                "start": safe_offset,
+                "max_results": safe_max_results,
+                "sortBy": "relevance",
+                "sortOrder": "descending"
+            },
+            follow_redirects=True
+        )
         if response.status_code == 200:
             root = ET.fromstring(response.text)
             ns = {

@@ -24,19 +24,19 @@ export const escapeLatex = (val: any): string => {
   if (val === null || val === undefined) return '-';
   const str = String(val);
   if (!str.trim()) return '-';
-  // Step 1: Escape backslashes first to prevent double-escaping downstream LaTeX commands
-  let out = str.replace(/\\/g, '\\textbackslash{}');
-  // Step 2: Escape LaTeX special grouping and formatting characters
-  out = out.replace(/\{/g, '\\{');
-  out = out.replace(/\}/g, '\\}');
-  out = out.replace(/%/g, '\\%');
-  out = out.replace(/_/g, '\\_');
-  out = out.replace(/&/g, '\\&');
-  out = out.replace(/#/g, '\\#');
-  out = out.replace(/\$/g, '\\$');
-  out = out.replace(/\^/g, '\\textasciicircum{}');
-  out = out.replace(/~/g, '\\textasciitilde{}');
-  return out;
+  const map: Record<string, string> = {
+    '\\': '\\textbackslash{}',
+    '{': '\\{',
+    '}': '\\}',
+    '%': '\\%',
+    '_': '\\_',
+    '&': '\\&',
+    '#': '\\#',
+    '$': '\\$',
+    '^': '\\textasciicircum{}',
+    '~': '\\textasciitilde{}'
+  };
+  return str.replace(/[\\{}%_&#$^~]/g, (match) => map[match] || match);
 };
 
 export const DataSheetStudio: React.FC = () => {

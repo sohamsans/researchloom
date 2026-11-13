@@ -104,11 +104,19 @@ export const PRISMAFlowDiagram: React.FC<PRISMAFlowDiagramProps> = ({
     const elig_ex = stats.eligibility_excluded || 0;
     const included = stats.total_included || 0;
 
+    const map: Record<string, string> = {
+      '\\': '\\textbackslash{}',
+      '%': '\\%',
+      '$': '\\$',
+      '&': '\\&',
+      '#': '\\#',
+      '_': '\\_',
+      '{': '\\{',
+      '}': '\\}'
+    };
     const reasons = Object.entries(stats.screen_excluded_by_reason || {})
       .map(([r, c]) => {
-        const cleanReason = r
-          .replace(/\\/g, '\\textbackslash{}')
-          .replace(/[%$&#_{}]/g, '\\$&');
+        const cleanReason = r.replace(/[\\%$&#_{}]/g, (match) => map[match] || match);
         return `${cleanReason}: $n = ${c}$`;
       })
       .join('\\\\ ');

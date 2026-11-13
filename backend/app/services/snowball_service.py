@@ -64,9 +64,13 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
     arxiv_match = re.match(r"^(\d{4}\.\d{4,5}(?:v\d+)?)$", norm_arxiv, re.IGNORECASE)
     if arxiv_match:
         arxiv_id = arxiv_match.group(1)
-        safe_arxiv_id = urllib.parse.quote(arxiv_id, safe=".")
-        url = f"{OPENALEX_BASE_URL}/works/https://arxiv.org/abs/{safe_arxiv_id}?mailto={POLITE_EMAIL}"
-        resp = await client.get(url, headers=HEADERS, timeout=12.0)
+        arxiv_target = f"https://arxiv.org/abs/{arxiv_id}"
+        resp = await client.get(
+            f"{OPENALEX_BASE_URL}/works/{arxiv_target}",
+            params={"mailto": POLITE_EMAIL},
+            headers=HEADERS,
+            timeout=12.0
+        )
         if resp.status_code == 200:
             return resp.json()
 
@@ -74,8 +78,12 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
     pmid_match = re.match(r"^(?:pmid:)?(\d{7,9})$", clean_id, re.IGNORECASE)
     if pmid_match:
         pmid = pmid_match.group(1)
-        url = f"{OPENALEX_BASE_URL}/works/pmid:{pmid}?mailto={POLITE_EMAIL}"
-        resp = await client.get(url, headers=HEADERS, timeout=12.0)
+        resp = await client.get(
+            f"{OPENALEX_BASE_URL}/works/pmid:{pmid}",
+            params={"mailto": POLITE_EMAIL},
+            headers=HEADERS,
+            timeout=12.0
+        )
         if resp.status_code == 200:
             return resp.json()
 
@@ -87,9 +95,13 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
             break
 
     if "/" in clean_doi and re.match(r"^10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$", clean_doi):
-        safe_doi = urllib.parse.quote(clean_doi, safe="/")
-        url = f"{OPENALEX_BASE_URL}/works/https://doi.org/{safe_doi}?mailto={POLITE_EMAIL}"
-        resp = await client.get(url, headers=HEADERS, timeout=12.0)
+        doi_target = f"https://doi.org/{clean_doi}"
+        resp = await client.get(
+            f"{OPENALEX_BASE_URL}/works/{doi_target}",
+            params={"mailto": POLITE_EMAIL},
+            headers=HEADERS,
+            timeout=12.0
+        )
         if resp.status_code == 200:
             return resp.json()
 
@@ -97,9 +109,16 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
     if not clean_id.startswith("synth_") and len(clean_id) > 3:
         clean_search = re.sub(r"[^\w\s-]", " ", clean_id).strip()
         if clean_search:
-            safe_search = urllib.parse.quote(clean_search)
-            url = f"{OPENALEX_BASE_URL}/works?filter=default.search:{safe_search}&per-page=1&mailto={POLITE_EMAIL}"
-            resp = await client.get(url, headers=HEADERS, timeout=12.0)
+            resp = await client.get(
+                f"{OPENALEX_BASE_URL}/works",
+                params={
+                    "filter": f"default.search:{clean_search}",
+                    "per-page": 1,
+                    "mailto": POLITE_EMAIL
+                },
+                headers=HEADERS,
+                timeout=12.0
+            )
             if resp.status_code == 200:
                 results = resp.json().get("results", [])
                 if results:
@@ -109,9 +128,16 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
     if title and len(title.strip()) > 3:
         clean_title = re.sub(r"[^\w\s-]", " ", title).strip()
         if clean_title:
-            safe_title = urllib.parse.quote(clean_title)
-            url = f"{OPENALEX_BASE_URL}/works?search={safe_title}&per-page=1&mailto={POLITE_EMAIL}"
-            resp = await client.get(url, headers=HEADERS, timeout=12.0)
+            resp = await client.get(
+                f"{OPENALEX_BASE_URL}/works",
+                params={
+                    "search": clean_title,
+                    "per-page": 1,
+                    "mailto": POLITE_EMAIL
+                },
+                headers=HEADERS,
+                timeout=12.0
+            )
             if resp.status_code == 200:
                 results = resp.json().get("results", [])
                 if results:
@@ -205,20 +231,21 @@ async def perform_citation_snowballing(
         # Execute Snowball Query
         # Backward = Predecessors cited by seed -> filter=cited_by:canonical_openalex_id
         # Forward = Successors that cite seed -> filter=cites:canonical_openalex_id
-        safe_canonical_id = urllib.parse.quote(canonical_openalex_id, safe="")
-        filter_param = f"cited_by:{safe_canonical_id}" if direction == "backward" else f"cites:{safe_canonical_id}"
+        filter_param = f"cited_by:{canonical_openalex_id}" if direction == "backward" else f"cites:{canonical_openalex_id}"
         relation_label = "predecessor" if direction == "backward" else "successor"
 
-        query_url = (
-            f"{OPENALEX_BASE_URL}/works"
-            f"?filter={filter_param}"
-            f"&per-page={max_results}"
-            f"&sort=cited_by_count:desc"
-            f"&mailto={POLITE_EMAIL}"
-        )
-
         try:
-            resp = await client.get(query_url, headers=HEADERS, timeout=14.0)
+            resp = await client.get(
+                f"{OPENALEX_BASE_URL}/works",
+                params={
+                    "filter": filter_param,
+                    "per-page": max_results,
+                    "sort": "cited_by_count:desc",
+                    "mailto": POLITE_EMAIL
+                },
+                headers=HEADERS,
+                timeout=14.0
+            )
             if resp.status_code != 200:
                 raise httpx.HTTPStatusError(f"HTTP {resp.status_code}", request=resp.request, response=resp)
             data = resp.json()
