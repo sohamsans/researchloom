@@ -52,12 +52,17 @@ async def test_resolve_seed_arxiv_underscores():
     import httpx
     from app.services.snowball_service import resolve_seed_work
 
+    import urllib.parse
+
     def handler(request: httpx.Request) -> httpx.Response:
-        if "arxiv.org/abs/1706.03762" in str(request.url):
+        url_str = urllib.parse.unquote(str(request.url))
+        if "arxiv.org/abs/1706.03762" in url_str:
             return httpx.Response(200, json={
-                "id": "https://openalex.org/W3035965352",
-                "title": "Attention Is All You Need",
-                "publication_year": 2017
+                "results": [{
+                    "id": "https://openalex.org/W3035965352",
+                    "title": "Attention Is All You Need",
+                    "publication_year": 2017
+                }]
             })
         return httpx.Response(404, json={"error": "Not found"})
 

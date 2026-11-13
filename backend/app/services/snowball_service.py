@@ -64,28 +64,31 @@ async def resolve_seed_work(client: httpx.AsyncClient, identifier: str, title: O
     arxiv_match = re.match(r"^(\d{4}\.\d{4,5}(?:v\d+)?)$", norm_arxiv, re.IGNORECASE)
     if arxiv_match:
         arxiv_id = arxiv_match.group(1)
-        arxiv_target = f"https://arxiv.org/abs/{arxiv_id}"
         resp = await client.get(
-            f"{OPENALEX_BASE_URL}/works/{arxiv_target}",
-            params={"mailto": POLITE_EMAIL},
+            f"{OPENALEX_BASE_URL}/works",
+            params={"filter": f"ids.arxiv:https://arxiv.org/abs/{arxiv_id}", "mailto": POLITE_EMAIL},
             headers=HEADERS,
             timeout=12.0
         )
         if resp.status_code == 200:
-            return resp.json()
+            data = resp.json()
+            results = data.get("results", [])
+            return results[0] if results else (data if "id" in data else None)
 
     # 3. PMID (e.g. pmid:32868963 or 7-9 digits)
     pmid_match = re.match(r"^(?:pmid:)?(\d{7,9})$", clean_id, re.IGNORECASE)
     if pmid_match:
         pmid = pmid_match.group(1)
         resp = await client.get(
-            f"{OPENALEX_BASE_URL}/works/pmid:{pmid}",
-            params={"mailto": POLITE_EMAIL},
+            f"{OPENALEX_BASE_URL}/works",
+            params={"filter": f"ids.pmid:{pmid}", "mailto": POLITE_EMAIL},
             headers=HEADERS,
             timeout=12.0
         )
         if resp.status_code == 200:
-            return resp.json()
+            data = resp.json()
+            results = data.get("results", [])
+            return results[0] if results else (data if "id" in data else None)
 
     # 4. DOI or Generic URL
     clean_doi = clean_id
